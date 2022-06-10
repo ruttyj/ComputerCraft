@@ -1,0 +1,820 @@
+-- Turtle script
+-- aloow for manual or automatic control
+
+function jsonEncode(v)
+  return textutils.serialize(v)
+end
+
+function jsonDecode(v)
+  return textutils.unserialize(v)
+end
+
+function printTable(t, offset)
+  if (offset == nil) then
+    offset = 0
+  end
+
+  local pad = string.rep('  ', offset)
+  for k,v in pairs(t) do 
+    if (type(v) == 'function') then
+      print(string.format("\n%s[%s] = function", pad, k))
+    elseif (type(v) == 'string') then 
+      print(string.format("\n%s[%s] = '%s'", pad, k, v))
+    elseif (type(v) == 'number') then 
+      print(string.format("\n%s[%s] = %s", pad, k, v))
+    elseif (type(v) == 'table') then 
+      print(string.format("\n%s[%s] = table", pad, k))
+      print("\n--------------------------------")
+      printTable(v)
+      print("\n--------------------------------")
+    elseif (v == nil) then 
+      print(string.format("\n%s[%s] = nil", pad, k))
+    else 
+      print(string.format("\n%s[%s] = %s", pad, k, type(v)))
+    end
+    sleep(0.1)
+  end
+end
+
+function dump(v)
+  local varType = type(v)
+
+  if (type(v) == 'function') then
+    print(string.format("\nfunction"))
+  elseif (type(v) == 'string') then 
+    print(string.format("\n'%s'", v))
+  elseif (type(v) == 'number') then 
+    print(string.format("\n%s", v))
+  elseif (type(v) == 'table') then 
+    print(string.format("\ntable: %s", jsonEncode(v)))
+  elseif (v == nil) then 
+    print(string.format("\nnil"))
+  else 
+    print(string.format("\ntype: %s", type(v)))
+  end
+end
+
+
+
+
+
+function toNumber(num, fallback)
+  local temp = tonumber(num)
+
+  if (temp ~= nil and type(temp) == 'number') then
+    return temp
+  end
+
+  if (fallback ~= nil and type(fallback) == 'number') then
+    return fallback
+  end
+
+  return 0
+end
+
+function printVector(v)
+  print(string.format("x:[%s], y:[%s], z[%s]", v.x, v.y, v.z))
+end
+
+function vEqual(v1, v2)
+  return  ((v1 ~= nil and v2 ~= nil) or (v1 == nill and v2 == nil)) 
+     and  v1.x == v2.x 
+     and  v1.y == v2.y
+     and  v1.z == v2.z
+end
+
+function strJoin(list, delimiter)
+  local len = #list
+  if len == 0 then
+     return "" 
+  end
+  local string = list[1]
+  for i = 2, len do 
+     string = string .. delimiter .. list[i] 
+  end
+  return string
+end
+
+
+function hashVector(v)
+  return strJoin({v.x, v.y, v.z}, '|')
+end
+
+
+function deleteFile(sPath)
+  if (fs.exists(sPath)) then
+    fs.delete(sPath)
+  end
+end
+
+function putFileContents(sPath, content)
+  deleteFile(sPath)
+ 
+  local file = fs.open( sPath, "w" )
+  file.write(content)
+  file.close()
+end
+ 
+function getFileContents(sPath)
+  local sName = fs.getName( sPath )
+  local file = fs.open( sPath, "r" )
+  local sText = file.readAll()
+  file.close()
+  return sText
+end
+
+
+local Turtle = function()
+
+  local TURTLE_DATA_STORAGE_PATH = './data/turtle';
+
+  local mStartingDirection = 'E' -- @TODO ask user for current facing direction
+  local mRelativePos = vector.new(0, 0, 0)
+  local mHomePos = vector.new(0, 0, 0)
+  local mHomeFacingDir = 'E' -- @TODO ask user for current facing direction
+  local mFacingDir = mStartingDirection;
+  local mHasValidNavData = false;
+
+  local mDirections = {}
+  local mIndexToDirMap = {}
+  local direction
+  local key
+        dirIndex = 0
+
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'N'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'north'
+        direction['vector'] = vector.new(0, 0, -1)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+        
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'E'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'east'
+        direction['vector'] = vector.new(1, 0, 0)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+        
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'S'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'south'
+        direction['vector'] = vector.new(0, 0, 1)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'W'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'west'
+        direction['vector'] = vector.new(-1, 0, 0)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'U'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'up'
+        direction['vector'] = vector.new(0, 1, 0)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+
+        direction = {}
+        dirIndex = dirIndex + 1
+        key = 'D'
+        direction['key'] = key
+        direction['index'] = dirIndex
+        direction['label'] = 'down'
+        direction['vector'] = vector.new(0, -1, 0)
+        direction['hash'] = hashVector(direction['vector'])
+        mIndexToDirMap[dirIndex] = key
+        mDirections[key] = direction
+  
+  -- Create a look up table of vector hashes
+  -- link by reference to direction table information
+  -- look up by vector hash
+  local vDir = {}
+  for key, direction in pairs(mDirections) do 
+    vDir[direction.hash] = direction
+  end
+
+
+  function getTurnCountBetweenDirections(currentDir, desiredDir)
+
+    if (not isValidDir(currentDir) or not isValidDir(desiredDir)) then
+      print('INVALID direction. Valid options include [N, E, S, W]')
+      return 0
+    end
+
+    -- print(string.format("[%s, %s]", currentDir, desiredDir))
+    local currentOffset = mDirections[currentDir]['index']-1
+    local desiredOffset = mDirections[desiredDir]['index']-1
+
+    local fieldSize = 4
+    local clockwiseRotationDelta = (desiredOffset - currentOffset)
+    
+    local calcs = {}
+    table.insert(calcs, clockwiseRotationDelta % fieldSize) -- if turning right
+    table.insert(calcs, (0 - (fieldSize - clockwiseRotationDelta) % fieldSize)) -- if turning left
+    
+    local minValue = nil
+    local minAbsValue = nil
+
+    print('--------')
+    for k, calc in pairs(calcs) do
+      print(calc)
+      local absCalc = math.abs(calc)
+      if (minValue == nil or absCalc < minAbsValue) then
+        -- print(absCalc)
+        minValue = calc
+        minAbsValue = absCalc
+      end
+    end
+
+    return minValue
+  end
+
+
+  function getTurnDirection(dir, inc)
+    if (inc == nil) then 
+      inc = 1
+    end
+    
+    if (mDirections[mFacingDir]['index'] ~= nil) then
+        local currentIndex = mDirections[mFacingDir]['index'];
+        local currentNormalIndex = currentIndex - 1 -- convert to range of a field [0, ...,  n-1]
+        local nextNormalIndex = (((currentNormalIndex + inc) % 4) + 4) % 4 -- next index on circular array
+        local nextIndex = nextNormalIndex + 1
+
+        return mIndexToDirMap[nextIndex]
+    end
+  end
+
+
+  function getHomeFacingDirection()
+    return getDirection(mHomeFacingDir)
+  end
+
+  function getHomePos()
+    return mHomePos
+  end
+
+  function getDirection(dir)
+    return mDirections[dir]
+  end
+
+  function getFacingDirection()
+    return getDirection(mFacingDir)
+  end
+
+  function printFacingDir()
+    print(string.format("\nfacing: [%s]", mFacingDir))
+  end
+
+  function getFacingDirectionKey()
+    local facingDir = getFacingDirection()
+    if (facingDir ~= nil) then
+      return facingDir.key
+    end
+    return nil
+  end
+  
+  function getRightDir()
+    if (mFacingDir == 'N') then
+      return 'E'
+    elseif (mFacingDir == 'E') then 
+      return 'S'
+    elseif (mFacingDir == 'S') then 
+      return 'W'
+    elseif (mFacingDir == 'W') then 
+      return 'N'
+    end
+  end
+
+  function getLeftDir()
+    if (mFacingDir == 'N') then
+      return 'W'
+    elseif (mFacingDir == 'W') then 
+      return 'S'
+    elseif (mFacingDir == 'S') then 
+      return 'E'
+    elseif (mFacingDir == 'E') then 
+      return 'N'
+    end
+  end
+
+  function getDirectionByVector(v)
+    if (v == nil) then
+      return nil
+    end
+    
+    local temp = vector.new(v.x, v.y, v.z)
+    temp = temp:normalize()
+
+    print('temp')
+    printVector(temp)
+    local hash = hashVector(temp);
+    print(string.format("\nhash [%s]", hash))
+
+    local direction = vDir[hash]
+
+    if (direction ~= nil) then 
+      print(direction['key'])
+      return direction['key']
+    else
+      print('hash not found')
+      dump(direction)
+    end
+  end
+
+
+
+  function getNavData()
+    local sFileName = 'nav';
+
+    local dataStorageFolderPath = shell.resolve( TURTLE_DATA_STORAGE_PATH )
+    if (not fs.exists(dataStorageFolderPath)) then 
+      fs.makeDir(dataStorageFolderPath)
+    end
+
+    local sPath = string.format('%s/%s', dataStorageFolderPath, sFileName)
+    local data = {}
+    if (fs.exists(sPath)) then 
+      -- read it
+      local decodedData = jsonDecode(getFileContents(sPath))
+      if (  decodedData ~= nil and type(decodedData) == 'table') then
+        -- valid data found
+        data = decodedData
+      else
+        -- use a blank slate
+        data = {}
+      end
+    else
+      -- no file found
+      data = {}
+    end
+
+    return data
+  end
+
+  function getNavDataPath()
+    local sFileName = 'nav';
+
+    local dataStorageFolderPath = shell.resolve( TURTLE_DATA_STORAGE_PATH )
+    if (not fs.exists(dataStorageFolderPath)) then 
+      fs.makeDir(dataStorageFolderPath)
+    end
+
+    return string.format('%s/%s', dataStorageFolderPath, sFileName)
+  end
+
+  function saveNavData(data)
+    -- write to storage
+    putFileContents(getNavDataPath(), jsonEncode(data))
+  end
+
+  function deleteNavData()
+    deleteFile(getNavDataPath())
+  end
+
+  function setHome()
+    local data = getNavData()
+
+    -- set home facing direction
+    -- so it will know form which way to dock
+    data['home_facing']       = mFacingDir
+    data['current_pos']       = {x = 0, y = 0, z = 0}
+    data['current_facing']    = mFacingDir
+
+    
+    -- write to storage
+    saveNavData(data)
+    mHasValidNavData = true
+    mHomeFacingDir = mFacingDir
+  end
+
+  function setCurrentLocation()
+    local data = getNavData()
+    local p = mRelativePos;
+
+    -- update current location / orientation
+    -- relative to start location
+    data['current_pos']       = {x = p.x, y = p.y, z = p.z}
+    data['current_facing']    = mFacingDir
+    saveNavData(data)
+    mHasValidNavData = true
+  end
+
+  function loadNavData()
+    local data = getNavData()
+
+    local loadedCurrentPos = false
+    local loadedCurrentFacing = false
+    local loadedHomeFacingDirection = false
+
+    -- load home facing direction
+    local homeFacing = data['home_facing']
+    if (homeFacing ~= nil) then
+      mHomeFacingDir = homeFacing
+      loadedHomeFacingDirection = true
+    end
+
+    -- load position
+    local currentPos = data['current_pos']
+    if (currentPos ~= nil) then
+      if (currentPos.x ~= nil and currentPos.y ~= nil and currentPos.z ~= nil) then
+        mRelativePos = vector.new(currentPos.x, currentPos.y, currentPos.z)
+        loadedCurrentPos = true
+      end
+    end
+
+    -- current facing direction
+    local currentFacing = data['current_facing']
+    if (currentFacing ~= nil) then
+      mFacingDir = currentFacing
+      loadedCurrentFacing = true
+    end
+
+
+    if (loadedCurrentFacing and loadedCurrentPos and loadedHomeFacingDirection) then
+      mHasValidNavData = true
+    end
+  end
+
+  function printNav()
+    print('------------------------------------')
+    print("\nCurrent pos:")
+    printVector(mRelativePos)
+    print(string.format("\Current facing: [%s]", mFacingDir))
+    print(string.format("\nHome facing: [%s]", mHomeFacingDir))
+    print(string.format("\n"))
+  end
+
+
+  function turn(clockwiseTurns)
+    if (clockwiseTurns < 0) then
+      turnLeft(math.abs(clockwiseTurns))
+    else
+      turnRight(clockwiseTurns)
+    end
+  end
+
+  function isValidDir(dir)
+    if (dir == 'N' or dir == 'E' or dir == 'S' or dir == 'W') then 
+      return true
+    end
+    return false
+  end
+
+
+  function face(dir)
+    if (dir == nil) then
+      print('face direction nil? something went wrong')
+    end 
+
+    -- @TODO - this could be improved
+    dir = string.upper(dir)
+    if (isValidDir(dir)) then 
+      turn(getTurnCountBetweenDirections(mFacingDir, dir))
+    end
+  end
+
+
+  function moveZ(posZ)
+    --print(string.format("\n moveZ [%s]", posZ))
+
+    local dZ = posZ - mRelativePos.z
+    local adZ = math.abs(dZ)
+      
+    if (adZ > 0) then
+      local directionVector = vector.new(0, 0, dZ)
+      local moveDirection = getDirectionByVector(directionVector)
+      if (moveDirection ~= nil) then 
+        face(moveDirection)
+        forward(adZ)
+      end
+    end
+  end
+
+  function moveX(posX)
+    --print(string.format("\n moveX [%s]", posX))
+
+    local dX = posX - mRelativePos.x
+    local adX = math.abs(dX)
+      
+    if (adX > 0) then
+      local directionVector = vector.new(dX, 0, 0)
+      local moveDirection = getDirectionByVector(directionVector)
+      if (moveDirection ~= nil) then 
+        face(moveDirection)
+        forward(adX)
+      end
+    end
+  end
+
+  function moveY(posY)
+    --print(string.format("\n moveY [%s]", posY))
+
+    local dY = posY - mRelativePos.y
+    local adY = math.abs(dY)
+
+    if (adY ~= 0) then
+      if (dY < 0) then
+        down(adY)
+      elseif (0 < dY) then
+        up(adY)
+      end
+    end
+  end
+
+  function leaveStation()
+    if (vEqual(mHomePos, mRelativePos) and not vEqual(mHomePos, pos)) then
+      face(mHomeFacingDir)
+      forward(1)
+    end
+  end
+
+  --
+  function moveTo(pos)
+    printVector(pos)
+    local dY = pos.y - mRelativePos.y
+
+    if (0 < dY) then
+      moveY(pos.y)
+      moveX(pos.x)
+      moveZ(pos.z)
+    else 
+      -- if moving down, stuf might have already been built, do this at the end
+      moveX(pos.x)
+      moveZ(pos.z)
+      moveY(pos.y)
+    end
+  end
+
+  function isHome()
+    return vEqual(mHomePos, mRelativePos) and mFacingDir == mHomeFacingDir
+  end
+
+  function home()
+    -- if not already home
+    if (not isHome()) then 
+      local homeDirection = getHomeFacingDirection()
+      local entrancePos = mHomePos + homeDirection['vector']
+      moveTo(entrancePos)
+      face(homeDirection['key'])
+      back(1)
+    end
+  end
+
+  function back(times)
+    times = toNumber(times, 1)
+    local facingDir = getFacingDirection()
+    for i=1, times do
+      if (turtle.back()) then
+        mRelativePos = mRelativePos - facingDir['vector']
+        printVector(mRelativePos)
+        setCurrentLocation()
+      else 
+        return false
+      end
+    end
+    return true
+  end
+
+
+  function forward(times)
+    times = toNumber(times, 1)
+    local facingDir = getFacingDirection()
+    for i=1, times do
+      if (turtle.forward()) then
+        mRelativePos = mRelativePos + facingDir['vector']
+        printVector(mRelativePos)
+        setCurrentLocation()
+      else 
+        return false
+      end
+    end
+    return true
+  end
+
+  function up(times)
+    times = toNumber(times, 1)
+    for i=1, times do
+      if (turtle.up()) then
+        mRelativePos = mRelativePos + mDirections['U']['vector']
+        printVector(mRelativePos)
+        setCurrentLocation()
+      else 
+        return false
+      end
+    end
+    return true
+  end
+
+
+  function down(times)
+    times = toNumber(times, 1)
+    for i=1, times do
+      if (turtle.down()) then
+        mRelativePos = mRelativePos + mDirections['D']['vector']
+        printVector(mRelativePos)
+        setCurrentLocation()
+      else 
+        return false
+      end
+    end
+    return true
+  end
+
+
+
+  function turnLeft(times)
+    times = toNumber(times, 1)
+    local newDir
+    for i=1, times do
+      newDir = getLeftDir()
+      if (turtle.turnLeft()) then
+        mFacingDir = newDir
+        setCurrentLocation()
+        printFacingDir()
+      else
+        return false
+      end
+    end
+    return true
+  end
+
+
+  function turnRight(times)
+    times = toNumber(times, 1)
+    local newDir
+    for i=1, times do
+      newDir = getRightDir()
+      if (turtle.turnRight()) then
+        mFacingDir = newDir
+        setCurrentLocation()
+        printFacingDir()
+      else
+        return false
+      end
+    end
+    return true
+  end
+
+
+  function right(times)
+    turnRight()
+
+    local wentAllTheWay = true
+    if (not forward(times)) then
+      wentAllTheWay = false
+    end
+
+    turnLeft()
+    return wentAllTheWay
+  end
+
+
+  function left(times)
+    turnLeft()
+
+    local wentAllTheWay = true
+    if (not forward(times)) then
+      wentAllTheWay = false
+    end
+
+    turnRight()
+    return wentAllTheWay
+  end
+
+  function constructor()
+
+    -- check local storage if there is any nav data
+    loadNavData()
+
+    -- if not set the new home
+    if (not mHasValidNavData) then
+      setHome()
+    end
+
+  end
+
+  -- execute constructor
+  constructor()
+
+  return {
+    forward   = forward,
+    back      = back,
+    up        = up,
+    down      = down,
+    turnLeft  = turnLeft,
+    turnRight = turnRight,
+    face      = face,
+    right     = right,
+    left      = left,
+    setHome   = setHome,
+    clearNav  = deleteNavData,
+    printNav  = printNav,
+    moveTo    = moveTo,
+    face      = face,
+    turn      = turn,
+    home      = home,
+    isHome    = isHome,
+    leaveStation = leaveStation,
+    getHomePos = getHomePos,
+    turnCount = getTurnCountBetweenDirections
+  }
+end
+
+
+-- EXECUTE
+
+-- Overwrite turtle variable with upgraded class
+local turtle = Turtle()
+
+local args = {...}
+if (#args ~= 0) then
+  local command = tostring(args[1])
+  local times = toNumber(args[2], 1)
+
+    if (command == 'back' or command == 'backward') then
+      turtle.back(times)
+
+    elseif (command == 'forward' or command == 'move') then
+      turtle.forward(times)
+
+    elseif (command == 'up') then
+      turtle.up(times)
+
+    elseif (command == 'down') then
+      turtle.down(times)
+
+    elseif (string.lower(command) == 'turnleft') then
+      turtle.turnLeft(times)
+
+    elseif (string.lower(command) == 'turnright') then
+      turtle.turnRight(times)
+
+    elseif (command == 'left') then
+      turtle.left(times)
+
+    elseif (command == 'right') then
+      turtle.right(times)
+
+    elseif (string.lower(command) == 'sethome') then
+      turtle.clearNav()
+      turtle.setHome()
+    elseif (string.lower(command) == 'clearnav') then
+      turtle.clearNav()
+    elseif (string.lower(command) == 'printnav') then
+      turtle.printNav()
+    elseif (string.lower(command) == 'moveto') then
+      local x = toNumber(args[2])
+      local y = toNumber(args[3])
+      local z = toNumber(args[4])
+      local face = args[5]
+
+      local newPos = vector.new(x, y, z)
+
+      -- is home going somewhere else
+      if (turtle.isHome() and not vEqual(newPos, turtle.getHomePos())) then 
+        leaveStation()
+      end
+
+      turtle.moveTo(newPos)
+
+      if (face ~= nil) then
+        turtle.face(face)
+      end
+    elseif (string.lower(command) == 'face') then
+      local dir = tostring(args[2])
+      turtle.face(dir)
+    elseif (string.lower(command) == 'turn') then
+      turtle.turn(times)
+    elseif (string.lower(command) == 'turncount') then
+      local currentDir = string.upper(args[2])
+      local desiredDir = string.upper(args[3])
+      print(string.format("\nTurns required: [%s]", turtle.turnCount(currentDir, desiredDir)))
+    elseif (string.lower(command) == 'home') then
+      turtle.home()
+    else
+      print('command not recognized')
+    end
+end

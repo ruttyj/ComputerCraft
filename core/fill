@@ -1,0 +1,228 @@
+-- pastebin get RmLBb8eq install
+
+
+function FillSand()
+
+  local startUpFuelThreshold = 10000
+
+  local mode = 'idle';
+
+  local minWait = 0.3;
+
+  function getFuelSlot()
+    return 1
+  end
+
+  function getFuelCount()
+    return turtle.getItemCount(getFuelSlot())
+  end
+
+  function selectFuelSlot()
+    turtle.select(getFuelSlot())
+  end
+
+  function getFuelLevel()
+    return turtle.getFuelLevel()
+  end
+
+  function isFuelBelowThreshold(level)
+    local fuelLevel = getFuelLevel()
+    return fuelLevel < level
+  end
+
+  function getTrashSlot()
+    return 16
+  end
+
+  function getSandSlot()
+    return 2
+  end
+
+  function hasFuelAvailable()
+    local fuelSlot = getFuelSlot()
+    selectFuelSlot()
+    return 0 ~= getFuelCount()
+  end
+
+  function printFuelLevel()
+    print('Fuel Level: '..turtle.getFuelLevel().."\n")
+  end
+
+  function initialRefuel()
+    local shouldRetry = true;
+    while (shouldRetry) do 
+      while (isFuelBelowThreshold(startUpFuelThreshold) and hasFuelAvailable()) do 
+        selectFuelSlot()
+        print('refueling 1')
+        turtle.refuel(1)
+        sleep(0.1)
+      end
+      shouldRetry = false
+
+      -- Is still below limit after using up all fuel
+      if (isFuelBelowThreshold(startUpFuelThreshold)) then
+
+        local displayFuelMenuOptions = function()
+          print('Please insert fuel into the active slot'.."\n")
+          print('Enter "ok" to continue'.."\n")
+          print('Enter "no" to exit program'.."\n")
+        end
+
+        -- Promt user to refill the fuel
+        local doesNotHaveValidAnswer = true
+        while (doesNotHaveValidAnswer) do 
+          displayFuelMenuOptions()
+          local inputText = string.lower(tostring(io.read()))
+          if (inputText == 'ok') then 
+            print('"ok" received, attempting to refuel')
+            shouldRetry = true
+            doesNotHaveValidAnswer = false
+          elseif (inputText == 'no') then
+            print('"no" quitting program')
+            return false
+          else 
+            print('Invalid entry, please try again'.."\n")
+          end
+        end
+      end
+    end
+
+    print('Refuel complete'.."\n")
+    printFuelLevel()
+    return true
+  end
+
+  function init()
+    local refuelSuccess = initialRefuel()
+
+    if (refuelSuccess) then 
+      mode = 'active'
+      print('Change mode: '..mode)
+    end
+  end
+
+
+  function leaveStation()
+    return moveForward()
+  end
+
+  function moveForward()
+    turtle.select(getTrashSlot())
+    turtle.dig("forward")
+    turtle.drop()
+
+    if (turtle.forward()) then 
+      printFuelLevel()
+      return true
+    end
+    return false
+  end
+
+  function processLine()
+    -- enter the area
+    local keepGoing = true 
+
+    local x = 1
+    local limit = 16
+    while (keepGoing and x <= limit) do
+      -- assume sand in slot 2
+      turtle.select(2)
+
+      -- fill with sand until full
+      local attempt = 1
+      while (not turtle.detectDown() and attempt < 256) do
+        turtle.placeDown()
+        attempt = attempt + 1
+        sleep(minWait)
+      end
+
+      if (not turtle.detectDown()) then
+        print('something went wrong')
+        keepGoing = false
+      end
+
+      if (x ~= limit) then 
+        moveForward()
+      end    
+      x = x+1
+    end
+  end
+
+  function moveToNextLine(i)
+    if (i % 2 == 1) then 
+      turtle.turnRight();
+      moveForward()
+      turtle.turnRight();
+    else 
+      turtle.turnLeft();
+      moveForward()
+      turtle.turnLeft();
+    end
+  end
+
+  function run()
+    print('running fillSand')
+    sleep(0.5)
+    init()
+
+    if (mode == 'active') then
+      print('working...')
+      leaveStation()
+
+      -- move into chunk
+      moveForward()
+
+      -- process the chunk
+      for i=1, 16 do
+        processLine()
+        if (i ~= 16) then
+          moveToNextLine(i)
+        end
+      end
+    end
+    
+    print('end fillSand')
+  end
+
+  return {
+    run = run
+  }
+end
+
+
+
+
+local fillSandProgram = FillSand()
+fillSandProgram.run()
+
+
+
+
+if (false) then
+  local fuelSlot = 1
+  boolean = turtle.select(fuelSlot)
+  turtle.getFuelLimit()
+  turtle.getFuelLevel()
+  turtle.refuel(1)
+
+  boolean = turtle.detect()
+
+  boolean = turtle.detectDown()
+  boolean = turtle.placeDown()
+
+  boolean = turtle.forward()
+  boolean = turtle.back()
+
+  boolean = turtle.turnLeft()
+  boolean = turtle.turnRight()
+
+  slotNum = turtle.getSelectedSlot()
+  boolean = turtle.select(slotNum)
+
+  turtle.getItemDetail(slotNum)
+  --boolean = turtle.equipLeft()
+  numQuantity = 1;
+  boolean = turtle.dig("bottom")
+  boolean = turtle.transferTo(slotNum, numQuantity)
+end
+--###

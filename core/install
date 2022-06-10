@@ -1,0 +1,183 @@
+--====================================================================
+-- RuttyJ Install script
+--
+-- -  This script can be downloaded
+--    command: pastebin get RmLBb8eq install
+--
+-- -  Once installed you can execute the file
+--    command: install
+--
+-- -  This will download the lastest version of this file
+--    and proceed to install the files on the newest version
+--====================================================================
+ 
+--###########################################################
+ 
+-- FUNCTIONS
+ 
+ 
+local function getPasetbinUrl(paste)
+  return "https://pastebin.com/raw/"..textutils.urlEncode(paste)
+end
+ 
+ 
+local function getFromUrl(url)
+  local response = http.get(url)
+      
+  if response then
+    local sResponse = response.readAll()
+    response.close()
+    return sResponse
+  else
+    print( "ERROR: http.get("..url..")" )
+    printError( "Failed." )
+  end
+end
+ 
+-- Put contents in a file
+-- @param sPath     path to file
+-- @param content   string of content to write
+local function filePutContents(sPath, content)
+  if (fs.exists(sPath)) then
+    fs.delete(sPath)
+  end
+ 
+  local file = fs.open( sPath, "w" )
+  file.write( content )
+  file.close()
+end
+ 
+-- Copy pastebin to file
+-- @param sCode
+-- @param sFile 
+local function copyPastebinToFile(sCode, sFile)
+  print('-----------------------------------------------')
+  print( 'Downloading '..sFile..' pastebin ('..sCode..')')
+  local sPath = shell.resolve(sFile)
+  local res = getFromUrl(getPasetbinUrl(sCode))
+  if res then        
+    filePutContents(sPath, res)
+    print(sFile..' Saved'.."\n")
+  end 
+end
+ 
+function copyUrlToFile(url, sFile)
+  print('-----------------------------------------------')
+  print( 'Downloading '..sFile..' url ('..url..')')
+  local sPath = shell.resolve(sFile)
+  local res = getFromUrl(url)
+  if res then        
+    filePutContents(sPath, res)
+    print(sFile..' Saved'.."\n")
+  end 
+end
+ 
+function resetMonitorSettings()
+  local m = peripheral.wrap('top')
+  if (m ~= nil) then 
+    m.setBackgroundColor(colors.black)
+    m.setTextColor(colors.white)
+    m.setTextScale(1)
+    m.clear()
+  end
+end
+ 
+function strJoin(list, delimiter)
+  local len = #list
+  if len == 0 then
+     return "" 
+  end
+  local string = list[1]
+  for i = 2, len do 
+     string = string .. delimiter .. list[i] 
+  end
+  return string
+end
+ 
+-- Split text into a list consisting of the strings in text,
+-- separated by strings matching delimiter (which may be a pattern). 
+-- example: strsplit(",%s*", "Anna, Bob, Charlie,Dolores")
+function strSplit(text, delimiter)
+  local list = {}
+  local pos = 1
+  if strfind("", delimiter, 1) then -- this would result in endless loops
+     error("delimiter matches empty string!")
+  end
+  while 1 do
+     local first, last = strfind(text, delimiter, pos)
+     if first then -- found?
+        tinsert(list, strsub(text, pos, first-1))
+        pos = last+1
+     else
+        tinsert(list, strsub(text, pos))
+        break
+     end
+  end
+  return list
+end
+ 
+ 
+--###########################################################
+ 
+-- EXECUTE
+ 
+resetMonitorSettings()
+ 
+local args = {...}
+ 
+-- Install scripts 
+if (#args > 0 and args[1] == 'install') then
+ 
+  -- assumed start up:
+  copyPastebinToFile('3VvR3wNc', 'default_startup') -- download startup
+  copyPastebinToFile('qJnZugXK', 'screensaver')
+ 
+  -- install useful programs
+  copyPastebinToFile('xuBDqUNF', 'pastebin') -- download pastebin
+ 
+  
+ 
+  -- dependencies
+  copyPastebinToFile('g5tBarus', 'wrap') -- download wrap - program to auto detect-monitors
+  
+  if (not fs.exists('./lib')) then
+    fs.makeDir('lib')
+  end
+  copyUrlToFile('https://raw.githubusercontent.com/themousery/vector.lua/master/vector.lua', './lib/vector') -- vector library
+ 
+  -- bee timers
+  copyPastebinToFile('1t1tRSRL', 'makePrincess') -- download beeTimers
+  copyPastebinToFile('1t1tRSRL', 'run') -- download beeTimers
+ 
+  copyPastebinToFile('jQNNQ09D', 'fill') -- download turtle fill script
+  copyPastebinToFile('gNr2Uxiv', 't') -- turtle commands
+  copyPastebinToFile('15MLXVmu', 'junk')
+ 
+  copyPastebinToFile('EDpAjkvY', 'test') -- misc dev
+ 
+  -- Display text to screen
+  copyPastebinToFile('KzhAQjqX', 'display') -- download display text function
+ 
+  -- Image related things
+  copyPastebinToFile('H5SFvDUR', 'image') -- download image script
+  copyPastebinToFile('nkGxnTGP', 'bee.nfp') -- download beeimage
+  copyPastebinToFile('tNX2gaUQ', 'kitty.nfp') -- download kitty image
+  copyPastebinToFile('ZTaEgS1G', 'nyan.nfp') -- download nyan image
+  copyPastebinToFile('gkJ9GAty', 'orient.nfp')
+  copyPastebinToFile('GurGbNC8', 'redcity.nfp')
+  copyPastebinToFile('BBMjphEj', 'pillar.nfp')
+ 
+ 
+ 
+  local commandStr = '';
+  if (#args > 1) then
+    commandStr = strJoin({unpack(args, 2)}, ' ')
+  end
+    shell.run(commandStr)
+else
+  -- Update self then install scripts
+    copyPastebinToFile('RmLBb8eq', 'install') -- download self
+ 
+  -- Run command after pull
+  shell.run('install install '..strJoin(args, ' '))
+end

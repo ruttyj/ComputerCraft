@@ -1,0 +1,102 @@
+--Simple Wrap 1.1
+--NuAoA
+local targs = {...}
+local comp_faces = {"front","back","left","right","top","bottom"}
+-- If peripheral type is passed, returns true and the face it was found on, if a face is passed, returns true and the type of peripheral on that face.
+function find(...)
+	if #arg ~= 1 then
+		error("[Wrap] Proper syntax is wrap.find(PeripheralType or ComputerFace)")				
+	else		
+        for i=1,#comp_faces do -- If a periphal type is passed
+                if peripheral.isPresent(comp_faces[i]) and peripheral.getType(comp_faces[i]) == arg[1] then
+						return true,comp_faces[i]
+                end
+        end
+		for i=1,#comp_faces do -- If a face is passed look for peripheral
+			if string.lower(arg[1]) == comp_faces[i] then
+				if peripheral.isPresent(comp_faces[i]) then
+						return true,peripheral.getType(comp_faces[i])
+                end
+			end			
+		end
+	end
+    return false,nil	
+end
+
+function attach(...) -- will search for perphial type or face and attach that peripheral. returns wrap function and bool(success)  
+	if #arg ~= 1 then error("Wrap: Proper syntax is wrap.attach(PeripheralType or ComputerFace)")
+	else
+		local bool,kind = find(arg[1])
+		if bool then
+			for i=1,#comp_faces do
+				if kind == comp_faces[i] then
+					return peripheral.wrap(kind),true
+				end
+			end
+			return peripheral.wrap(arg[1]),true
+		else
+			print("[Wrap] No Peripheral Found for type/face: "..arg[1])
+			return nil,false
+		end
+		
+	end
+end
+
+--returns the unqiue name of a remote peripheral attached with a modem
+function getRemoteName(name)
+	local modem,bool = attach("modem")
+	if bool and not modem.isWireless() then
+		local tab = modem.getNamesRemote()		
+		for k,v in pairs(tab) do
+			if string.lower(string.match(v,"(.+)_%d")) == string.lower(name) then
+				return v
+			end
+		end
+		return nil
+	else
+		print("[Wrap] no wired modems found! ("..name..")")
+	end
+
+end
+
+function scan(...)
+	print("[Wrap] Scanning for peripherals...")
+	for i = 1,#comp_faces do
+		local bool,name = find(comp_faces[i])
+		if bool then
+			print("[Wrap] "..name.." found on face "..comp_faces[i])
+			if name == "modem" then
+				local p = peripheral.wrap(comp_faces[i])
+				if p.isWireless() then
+					print("[Wrap]  ---> "..name.." is wireless")
+				else
+					local tab = p.getNamesRemote()
+					for k,v in pairs(tab) do
+						print("[Wrap]  ---> "..v.." found in modem network")
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if #targs>0 then
+	if targs[1] == "scan" then
+		scan()
+	elseif targs[1] == "getName" and #targs >1 then
+		local rName = getRemoteName(targs[2])
+		if rName ~= nil then
+			print("[Wrap] The remote name is: "..rName)
+		else
+			print("[Wrap] No remote name was found")
+		end
+	else
+		local bool, name = find(targs[1])
+		if bool then
+			print("[Wrap] "..name.." found on "..targs[1].." face.")
+		else
+			print("[Wrap] Nothing found.")
+		end
+	end
+end

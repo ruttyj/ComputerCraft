@@ -1,0 +1,306 @@
+--################################################
+-- this script: 1t1tRSRL
+-- pull script: RmLBb8eq
+--################################################
+
+--================================================
+ 
+--            REDSTONE HELPER CLASS
+ 
+--================================================
+function RedStoneBundle(side)
+ 
+  -- Add color to output 
+  addOutput = function (color)
+    redstone.setBundledOutput(side, colors.combine(redstone.getBundledOutput(side), color))      
+  end
+ 
+ 
+  -- Remove color from output
+  removeOutput = function (color)
+    redstone.setBundledOutput(side, colors.subtract(redstone.getBundledOutput(side), color))
+  end
+ 
+ 
+  -- Reset outputs
+  reset = function()
+    redstone.setBundledOutput(side, 0)
+  end
+ 
+ 
+  -- Set the output of color
+  set = function (color, value)
+    if (value == 1) then
+      addOutput(color) 
+    else 
+      removeOutput(color) 
+    end 
+  end
+ 
+ 
+  -- Check input
+  check = function (color)
+    return redstone.testBundledInput(side, color)    
+  end    
+ 
+  hidden = function()
+    print("not hidden")
+  end      
+ 
+  -- Make variables public
+  return {
+    set = set,
+    reset = reset,
+    check = check,
+  }
+end
+ 
+ 
+ 
+ 
+--################################################
+-- BeeTimer
+--################################################
+function BeeTimer(b)
+  local minSleep = 0.4
+
+  local COLOR_ON_SWITCH             = colors.yellow
+  local LABEL_ON_SWITCH             = 'yellow'
+  local COLOR_ON_INDICATOR          = colors.lime
+  local COLOR_PRINCESS_DEPLOY_PULSE = colors.purple
+  local COLOR_WOOD_GATE             = colors.red
+  local COLOR_DRONE_LIMIT_REACHED   = colors.blue
+  local COLOR_COUNTER_RESET         = colors.green
+  local COLOR_EXIT_PRINCESS         = colors.white
+  local COLOR_PRINCESS_RECEIVED     = colors.brown
+  local COLOR_KILL_SWITCH           = colors.black
+  local COLOR_DETECT_ALL_PRINCESSES_MISSING = colors.cyan
+  
+  local hasLimitBeenDetected = false;
+
+  function doSleep(amount)
+    local numMiniSleeps = amount / minSleep
+    for i=1, numMiniSleeps do
+      if (isActive()) then
+        checkRedstone()
+        sleep(minSleep)
+      end
+    end
+  end
+
+  function deployPrincesses(n, delay)
+    b.set(COLOR_PRINCESS_DEPLOY_PULSE, 0)
+    doSleep(0.5)
+    for i=1, n do
+      if (isActive()) then
+        print('release princess '..i)
+        b.set(COLOR_PRINCESS_DEPLOY_PULSE, 1)
+        sleep(delay)
+        b.set(COLOR_PRINCESS_DEPLOY_PULSE, 0)
+        sleep(delay)
+      end
+    end
+  end
+
+  function rotateBees()
+    if (isActive()) then
+      -- rotate the bees
+      b.set(COLOR_WOOD_GATE, 1) 
+      doSleep(7)
+      b.set(COLOR_WOOD_GATE, 0)
+    end
+  end
+
+  function isTurnedOn()
+    return b.check(COLOR_ON_SWITCH)
+  end
+
+  function isKilled()
+    return b.check(COLOR_KILL_SWITCH)
+  end
+
+  function isActive()
+    return isTurnedOn() and not isKilled()
+  end
+
+
+
+  function printToMonitor(message)
+    peripheral.call("top", "clear")
+    peripheral.call( "top", "write", "\n" .. message )
+    print(message)
+  end
+
+
+  function isPrincessesDone()
+    return b.check(COLOR_DETECT_ALL_PRINCESSES_MISSING)
+  end
+
+
+  function checkRedstone()
+    if (b.check(colors.blue)) then
+      hasLimitBeenDetected = true
+      b.set(colors.blue, 1)
+    end
+  end
+
+  function initRedstoneFlags()
+    hasLimitBeenDetected  = false;
+  end
+
+  function _( cond , T , F )
+    if cond then return T else return F end
+  end
+
+  -- Run
+  function run()
+    printToMonitor("Program start")
+    b.reset()
+    initRedstoneFlags()
+    local numAlvs = 9
+    local princessDelay = 0.3
+    local minGenerations = 4
+    local continueJob = true
+
+    b.set(COLOR_ON_INDICATOR, 1) -- is turned on
+
+    printToMonitor("Running")
+
+    printToMonitor("Rotating bees")
+    rotateBees();
+
+    local isDroneLimitReached = false
+    local needsBees = b.check(colors.pink);
+    local generationSince = 0;
+
+    while not isKilled() do
+      if (continueJob) then
+        printToMonitor("Starting Life Cycle #" .. generationSince)
+        
+        if (isActive() and needsBees) then
+          printToMonitor("Deploying bees")
+          needsBees = false
+          b.set(COLOR_WOOD_GATE, 0)
+          deployPrincesses(numAlvs, princessDelay)
+          generationSince = 0;
+
+          print('letting everyone get situated in their new home')
+          print('.........')
+          if (isActive()) then doSleep(5) end
+          print('........')
+          if (isActive()) then doSleep(5) end
+          print('.......')
+          if (isActive()) then doSleep(5) end
+          print('......')
+          if (isActive()) then doSleep(5) end
+          print('.....')
+          if (isActive()) then doSleep(5) end
+          print('....')
+          if (isActive()) then doSleep(5) end
+          print('...')
+          if (isActive()) then doSleep(5) end
+          print('..')
+          if (isActive()) then doSleep(7.5) end
+          print('.')
+        end 
+
+        -- begin the cycle
+        printToMonitor("waiting for next generation")
+        print('......')
+        if (isActive() and not isPrincessesDone()) then doSleep(5) end
+        print('.....')
+        if (isActive() and not isPrincessesDone()) then doSleep(5) end
+        print('....')
+        if (isActive() and not isPrincessesDone()) then doSleep(5) end
+        print('...')
+        if (isActive() and not isPrincessesDone()) then doSleep(5) end
+        print('..')
+        if (isActive() and not isPrincessesDone()) then doSleep(5) end
+        print('.')
+        if (isActive() and not isPrincessesDone()) then doSleep(3) end
+
+        
+        -- bee cycle over check if limit reached
+        isDroneLimitReached = hasLimitBeenDetected --b.check(COLOR_DRONE_LIMIT_REACHED)
+        if (isActive()) then
+          printToMonitor("Checking counts")
+          printToMonitor("Generation "..generationSince.." of ".. minGenerations)
+          printToMonitor("drone limit reached: ".._(isDroneLimitReached, "yes", "no"))
+          doSleep(0.5)
+          -- open the teseracts
+          local isDone = false
+          if (isDroneLimitReached and generationSince >= minGenerations) then
+            isDone = true;
+            printToMonitor('Batch is done')
+            if (not isPrincessesDone()) then
+              for i=1, 9 do
+                if (isActive()) then
+                  print('.')
+                  doSleep(4)
+                end
+              end
+            end
+            printToMonitor('Opening teseracts')
+            b.set(COLOR_EXIT_PRINCESS, 1) 
+            b.set(colors.blue, 0)
+            doSleep(3)
+            needsBees = true
+            
+          else 
+            generationSince = generationSince + 1;
+          end
+          printToMonitor('Rotating bees')
+          b.set(COLOR_WOOD_GATE, 1) 
+          doSleep(20)
+          b.set(COLOR_WOOD_GATE, 0)
+
+          -- close teseracts
+          b.set(COLOR_EXIT_PRINCESS, 0)
+          hasLimitBeenDetected = false
+          printToMonitor('Closing teseracts')
+        end
+
+
+        continueJob = isTurnedOn() -- and (not isDroneLimitReached or (isDroneLimitReached and wasPrincessesReceived))
+        isDroneLimitReached = false
+      else
+        -- wait for signal to be turned on
+        printToMonitor('Sleeping - waiting for a signal from ' .. LABEL_ON_SWITCH)
+        sleep(3)
+      end
+    end
+    printToMonitor("Program end")
+  end
+ 
+ 
+  -- Public
+  return {
+    run = run,  
+  }
+end
+ 
+ 
+ 
+ 
+ 
+ 
+--################################################
+ 
+-- RUN PROGRAM
+ 
+--################################################
+local args = {...}
+
+local side
+if (args[0] ~= nil) then
+  side = args[0]
+else
+  side = "back"
+end
+
+local b = RedStoneBundle(side)
+local beeTimer = BeeTimer(b)
+ 
+beeTimer.run()
+ 
+--END

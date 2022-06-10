@@ -1,0 +1,161 @@
+-- Screensaver
+-- qJnZugXK
+
+
+--#######################################
+
+-- FUNCTIONS
+
+function map(tbl, f)
+    local t = {}
+    for k,v in pairs(tbl) do
+        t[k] = f(v)
+    end
+    return t
+end
+
+function toNumber(num, fallback)
+  local temp = tonumber(num)
+
+  if (temp ~= nil and type(temp) == 'number') then
+    return temp
+  end
+
+  if (fallback ~= nil and type(fallback) == 'number') then
+    return fallback
+  end
+
+  return 0
+end
+
+
+--================================================
+-- REDSTONE HELPER CLASS
+function RedStoneBundle(side)
+ 
+  -- Add color to output 
+  addOutput = function (color)
+    redstone.setBundledOutput(side, colors.combine(redstone.getBundledOutput(side), color))      
+  end
+ 
+ 
+  -- Remove color from output
+  removeOutput = function (color)
+    redstone.setBundledOutput(side, colors.subtract(redstone.getBundledOutput(side), color))
+  end
+ 
+ 
+  -- Reset outputs
+  reset = function()
+    redstone.setBundledOutput(side, 0)
+  end
+ 
+ 
+  -- Set the output of color
+  set = function (color, value)
+    if (value == 1) then
+      addOutput(color) 
+    else 
+      removeOutput(color) 
+    end 
+  end
+ 
+ 
+  -- Check input
+  check = function (color)
+    return redstone.testBundledInput(side, color)    
+  end    
+ 
+  hidden = function()
+    print("not hidden")
+  end      
+ 
+  -- Make variables public
+  return {
+    set = set,
+    reset = reset,
+    check = check,
+  }
+end
+
+
+--#######################################
+
+-- EXECUTE
+
+print('starting up...')
+sleep(0.5)
+shell.run('image image_bee')
+
+local colorCables = {}
+colorCables['white']      = colors.white
+colorCables['orange']     = colors.orange
+colorCables['magenta']    = colors.magenta
+colorCables['lightBlue']  = colors.lightBlue
+colorCables['yellow']     = colors.yellow
+colorCables['lime']       = colors.lime
+colorCables['pink']       = colors.pink
+colorCables['gray']       = colors.gray
+colorCables['lightGray']  = colors.lightGray
+colorCables['cyan']       = colors.cyan
+colorCables['purple']     = colors.purple
+colorCables['blue']       = colors.blue
+colorCables['brown']      = colors.brown
+colorCables['green']      = colors.green
+colorCables['red']        = colors.red
+colorCables['black']      = colors.black
+
+local colorHex = {}
+colorHex['white']     = '0'
+colorHex['orange']    = '1'
+colorHex['magenta']   = '2'
+colorHex['lightBlue'] = '3'
+colorHex['yellow']    = '4'
+colorHex['lime']      = '5'
+colorHex['pink']      = '6'
+colorHex['gray']      = '7'
+colorHex['lightGray'] = '8'
+colorHex['cyan']      = '9'
+colorHex['purple']    = 'a'
+colorHex['blue']      = 'b'
+colorHex['brown']     = 'c'
+colorHex['green']     = 'd'
+colorHex['red']       = 'e'
+colorHex['black']     = 'f'
+
+local chosenColors = {
+  --'white',
+  'orange',
+  'magenta',
+  'lightBlue',
+  --'yellow',
+  'lime',
+  --'pink',
+  --'gray',
+  'lightGray',
+  'cyan',
+  --'purple',
+  --'blue',
+  --'brown',
+  --'green',
+  'red'
+  --'black'
+}
+
+
+local getRandomColorKey = function()
+	return chosenColors[math.random(#chosenColors)]
+end 
+
+
+local args = {...}
+if (#args ~= 0) then 
+  local delay = toNumber(args[1], 1)
+
+  -- @TODO add interupt on redstone
+  while true do 
+    shell.run('image image_bee 8'..colorHex[getRandomColorKey()])
+    print('hold crtl-t to exit')
+    sleep(delay)
+  end
+end

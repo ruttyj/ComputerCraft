@@ -1,0 +1,122 @@
+-- LoadImage
+-- pastebin get H5SFvDUR image
+-- use https://github.com/DownrightNifty/computercraft-stuff to convert images to .nfp format
+-- then paste the contents of that file in a pastebin
+
+--##############################################################
+
+-- FUNCTIONS
+
+local args = {...}
+
+function dump(o)
+  print( textutils.serialize( o ) )
+end
+
+function getFileContents(filepath)
+  -- Read file
+  local sName = fs.getName( filepath )
+  local file = fs.open( filepath, "r" )
+  local contents = file.readAll()
+  file.close()
+  return contents
+end
+
+--##############################################################
+
+-- EXECUTE
+
+local mon = peripheral.wrap("top")
+local x,y = mon.getSize()
+
+-- Reset monitor
+mon.setCursorPos(1,1)
+mon.setBackgroundColor(colors.black)
+mon.setTextScale(0.5)
+mon.clear()
+sleep(0.1)
+
+local filename
+local replace
+local replaceChar
+local withChar
+local boolShouldDoReplace = false
+
+-- if no arguments
+if #args == 0 then
+  print("Type the filename of the image you would like to load:")
+  filename = io.read()
+else
+
+  -- take arg1 as filename
+  filename = args[1]
+
+  -- take arg 2 as replacement
+  -- are replacements?
+  if (args[2] ~= nil) then
+    replaceArgument = args[2]
+
+    -- Is a valid pair
+    -- 0>c will replace all occurences of 0 with C
+    if (string.len(replaceArgument) == 2) then
+      replaceChar = string.sub(replaceArgument, 1, 1)
+      --print('replaceChar '..replaceChar)
+      --local operator = string.sub(replaceArgument, 2, 1)
+      withChar = string.sub(replaceArgument, 2)
+      --print('withChar '..withChar)
+
+      if (operator == '<') then 
+        operator = '>'
+        -- swap varaibles so the operator is corrected
+        local temp = replaceChar
+        replaceChar = withChar
+        withChar = temp
+      end
+
+      boolShouldDoReplace = true
+    end
+  end
+end
+
+
+local filepath = shell.resolve( filename )
+
+
+if not fs.exists( filepath ) or fs.isDir( filepath ) then
+  print( "No such file" )
+  return
+end
+
+
+local contents = getFileContents(filepath)
+local lineNum = 1
+for line in string.gmatch(contents, "[^\r\n]+") do 
+  local cursorOffset = 1
+  for p = 1, #line do
+    -- print(lineNum..' '..p)
+    local hex = string.sub(line, p, p) 
+
+    -- replace color with another
+    if (withChar ~= nil) then
+      if (hex ~= nil and replaceChar ~= nil) then
+        if(type(replaceChar) == 'string' and type(withChar) == 'string') then
+          if (string.lower(hex) == string.lower(replaceChar)) then
+            hex = withChar
+          end
+        end
+      end
+    end
+
+    local colorValue = tonumber('0x'..hex)
+    if (colorValue == nil) then
+      colorValue = 0
+    end
+
+    mon.setCursorPos(cursorOffset, lineNum)
+    mon.setBackgroundColor(2^colorValue)
+    mon.write(" ")
+    cursorOffset = cursorOffset + 1
+
+  end
+  lineNum = lineNum + 1
+end
