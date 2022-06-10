@@ -124,6 +124,7 @@ end
 resetMonitorSettings()
  
 local args = {...}
+local repoUrl = 'https://github.com/ruttyj/ComputerCraft/blob/main/core/'
  
 -- Install scripts 
 if (#args > 0 and args[1] == 'install') then
@@ -135,39 +136,45 @@ if (#args > 0 and args[1] == 'install') then
   -- install useful programs
   copyPastebinToFile('xuBDqUNF', 'pastebin') -- download pastebin
  
-  
- 
   -- dependencies
   copyPastebinToFile('g5tBarus', 'wrap') -- download wrap - program to auto detect-monitors
   
   if (not fs.exists('./lib')) then
     fs.makeDir('lib')
   end
-  copyUrlToFile('https://raw.githubusercontent.com/themousery/vector.lua/master/vector.lua', './lib/vector') -- vector library
  
   -- bee timers
-  copyPastebinToFile('1t1tRSRL', 'makePrincess') -- download beeTimers
-  copyPastebinToFile('1t1tRSRL', 'run') -- download beeTimers
- 
-  copyPastebinToFile('jQNNQ09D', 'fill') -- download turtle fill script
-  copyPastebinToFile('gNr2Uxiv', 't') -- turtle commands
-  copyPastebinToFile('15MLXVmu', 'junk')
- 
-  copyPastebinToFile('EDpAjkvY', 'test') -- misc dev
- 
-  -- Display text to screen
-  copyPastebinToFile('KzhAQjqX', 'display') -- download display text function
- 
-  -- Image related things
-  copyPastebinToFile('H5SFvDUR', 'image') -- download image script
-  copyPastebinToFile('nkGxnTGP', 'bee.nfp') -- download beeimage
-  copyPastebinToFile('tNX2gaUQ', 'kitty.nfp') -- download kitty image
-  copyPastebinToFile('ZTaEgS1G', 'nyan.nfp') -- download nyan image
-  copyPastebinToFile('gkJ9GAty', 'orient.nfp')
-  copyPastebinToFile('GurGbNC8', 'redcity.nfp')
-  copyPastebinToFile('BBMjphEj', 'pillar.nfp')
- 
- 
+  --  copyPastebinToFile('1t1tRSRL', 'makePrincess') -- download beeTimers
+  --  copyPastebinToFile('1t1tRSRL', 'run') -- download beeTimers
+  -- 
+  --  copyPastebinToFile('jQNNQ09D', 'fill') -- download turtle fill script
+  --  copyPastebinToFile('gNr2Uxiv', 't') -- turtle commands
+  --  copyPastebinToFile('15MLXVmu', 'junk')
+  -- 
+  --  copyPastebinToFile('EDpAjkvY', 'test') -- misc dev
+  -- 
+  --  -- Display text to screen
+  --  copyPastebinToFile('KzhAQjqX', 'display') -- download display text function
+  -- 
+  --  -- Image related things
+  --  copyPastebinToFile('H5SFvDUR', 'image') -- download image script
+  --  copyPastebinToFile('nkGxnTGP', 'bee.nfp') -- download beeimage
+  --  copyPastebinToFile('tNX2gaUQ', 'kitty.nfp') -- download kitty image
+  --  copyPastebinToFile('ZTaEgS1G', 'nyan.nfp') -- download nyan image
+  --  copyPastebinToFile('gkJ9GAty', 'orient.nfp')
+  --  copyPastebinToFile('GurGbNC8', 'redcity.nfp')
+  --  copyPastebinToFile('BBMjphEj', 'pillar.nfp')
+
+  copyUrlToFile(repoUrl..'beeTimer', 'beeTimer')
+  copyUrlToFile(repoUrl..'image', 'image')
+  copyUrlToFile(repoUrl..'pastebin', 'pastebin')
+  copyUrlToFile(repoUrl..'wrap', 'wrap')
+  copyUrlToFile(repoUrl..'screensaver', 'screensaver')
+  copyUrlToFile(repoUrl..'t', 't')
+
+  copyUrlToFile(repoUrl..'images/bee.nfp', 'images/bee.nfp')
+  copyUrlToFile(repoUrl..'images/nyan.nfp', 'images/nyan.nfp')
+  copyUrlToFile(repoUrl..'images/orient.nfp', 'images/orient.nfp')
  
   local commandStr = '';
   if (#args > 1) then
@@ -176,7 +183,7 @@ if (#args > 0 and args[1] == 'install') then
     shell.run(commandStr)
 else
   -- Update self then install scripts
-    copyPastebinToFile('RmLBb8eq', 'install') -- download self
+  copyUrlToFile(repoUrl..'install', 'install') -- download self
  
   -- Run command after pull
   shell.run('install install '..strJoin(args, ' '))
