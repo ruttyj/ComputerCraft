@@ -31,6 +31,7 @@ local function getFromUrl(url)
   else
     print( "ERROR: http.get("..url..")" )
     printError( "Failed." )
+    sleep(0.5)
   end
 end
  
