@@ -1,5 +1,13 @@
 -- Turtle script
--- aloow for manual or automatic control
+-- allow for manual or automatic control
+  
+
+
+
+--###################################################
+
+--               GLOBAL FUNCTIONS
+
 
 function jsonEncode(v)
   return textutils.serialize(v)
@@ -53,10 +61,6 @@ function dump(v)
     print(string.format("\ntype: %s", type(v)))
   end
 end
-
-
-
-
 
 function toNumber(num, fallback)
   local temp = tonumber(num)
@@ -124,100 +128,393 @@ function getFileContents(sPath)
 end
 
 
-local Turtle = function()
+local InventorySlot = function()
+  function constructor()
 
-  local TURTLE_DATA_STORAGE_PATH = './data/turtle';
+  end
 
-  local mStartingDirection = 'E' -- @TODO ask user for current facing direction
-  local mRelativePos = vector.new(0, 0, 0)
-  local mHomePos = vector.new(0, 0, 0)
-  local mHomeFacingDir = 'E' -- @TODO ask user for current facing direction
-  local mFacingDir = mStartingDirection;
-  local mHasValidNavData = false;
+  function getPublic()
+    return {
 
-  local mDirections = {}
-  local mIndexToDirMap = {}
-  local direction
-  local key
-        dirIndex = 0
+    }
+  end
 
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'N'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'north'
-        direction['vector'] = vector.new(0, 0, -1)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
-        
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'E'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'east'
-        direction['vector'] = vector.new(1, 0, 0)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
-        
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'S'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'south'
-        direction['vector'] = vector.new(0, 0, 1)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
+  constructor()
+  return getPublic()
+end
 
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'W'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'west'
-        direction['vector'] = vector.new(-1, 0, 0)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
 
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'U'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'up'
-        direction['vector'] = vector.new(0, 1, 0)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
+local InventorySystem = function(turtle)
 
-        direction = {}
-        dirIndex = dirIndex + 1
-        key = 'D'
-        direction['key'] = key
-        direction['index'] = dirIndex
-        direction['label'] = 'down'
-        direction['vector'] = vector.new(0, -1, 0)
-        direction['hash'] = hashVector(direction['vector'])
-        mIndexToDirMap[dirIndex] = key
-        mDirections[key] = direction
-  
-  -- Create a look up table of vector hashes
-  -- link by reference to direction table information
-  -- look up by vector hash
-  local vDir = {}
-  for key, direction in pairs(mDirections) do 
-    vDir[direction.hash] = direction
+  local mItemLabels = {}
+  local ITEM_KEY_EMPTY = ' ';
+  local mSpecialItems = {ITEM_KEY_EMPTY}
+
+
+  local ITEM_KEY_FUEL = 'Fuel'
+  local mItemInSlots = {}
+  local mEmptySlots = {}
+  local mSlots = {}
+  local mKnownSlots = {}
+
+  function constructor()
+    mItemLabels = {}
+    mItemLabels[ITEM_KEY_EMPTY] = 'empty block'
+    mItemLabels['R'] = 'rock'
+    mItemLabels['F'] = 'furnace'
+    mItemLabels['H'] = 'frame housing'
+    mItemLabels['A'] = 'alv'
+    mItemLabels['L'] = 'alv light'
+    mItemLabels['B'] = 'rain barrier'
+    mItemLabels['S'] = 'slab'
+    mItemLabels['T'] = 'teseract'
+    mItemLabels['W'] = 'wooden pipe'
+    mItemLabels['P'] = 'aprist pipe'
+  end
+
+  function isEmptySpace(itemKey)
+    return ITEM_KEY_EMPTY == itemKey
+  end
+
+  function getInventorySize()
+    return 16;
+  end
+
+  function countEmptySpaceTypes()
+    return 1
   end
 
 
-  function getTurnCountBetweenDirections(currentDir, desiredDir)
 
+
+
+  function scanInventory()
+    --local initialSelectedSlot = turtle.getSelectedSlot() -- not a thing
+
+    local slotsWithItems = {}
+    for slotNum = 1, getInventorySize() do 
+      local itemCount = toNumber(turtle.getItemCount(slotNum), 0)
+      local itemSpace = toNumber(turtle.getItemSpace(slotNum), 0)
+      local maxSize = itemCount + itemSpace
+
+      if (itemCount > 0) then
+        slotsWithItems[slotNum] = slotNum
+        print(string.format('Slot num #%s [%s/%s]', slotNum, itemCount, maxSize))
+        --sleep(1)
+      end
+    end
+
+
+    if (#slotsWithItems > 0) then
+
+      local itemGroupTopId = 0
+      local itemGroups = {}
+
+      local slotBelongsToGroup = {}
+
+      local getNewGroupId = function()
+        itemGroupTopId = itemGroupTopId + 1
+        return itemGroupTopId
+      end
+
+      local addToGroup = function(groupId, slotNum)
+        if (itemGroups[groupId] == nil) then
+          itemGroups[groupId] = {}
+        end
+
+        table.insert(itemGroups[groupId], slotNum)
+        slotBelongsToGroup[slotNum] = groupId
+      end
+
+      local mergeGroupInto = function(fromGroupId, toGroupId)
+        if (itemGroups[fromGroupId] ~= nil and fromGroupId ~= toGroupId) then
+          for index, slotNum in pairs(itemGroups[fromGroupId]) do
+            addToGroup(toGroupId, slotNum)
+          end
+          itemGroups[fromGroupId] = nil
+        end
+      end
+
+      -- group same items
+      -- define a function to compare all slots
+      -- find which ones are the same item
+      local compareMatches = function (slotA, slotB)
+        
+
+        -- if we are compairing to nothing
+        -- just group the one we know
+        -- for situation when only 1 item is in inventory we still want to group it
+        if (slotA ~= nil and slotB ~= nil) then
+          turtle.select(slotA)
+          local itemsInBothSlotsMatch = turtle.compareTo(slotB)
+
+          if (itemsInBothSlotsMatch) then
+            -- both items are the same
+            local groupId = nil
+
+            local slotAGroupExists = slotBelongsToGroup[slotA] ~= nil
+            local slotBGroupExists = slotBelongsToGroup[slotB] ~= nil
+          
+            if (slotAGroupExists and slotBGroupExists and (slotBelongsToGroup[slotA] ~= slotBelongsToGroup[slotB])) then
+              -- merge groups, remove other
+              mergeGroupInto(slotBelongsToGroup[slotB], slotBelongsToGroup[slotA])
+            elseif (slotAGroupExists) then
+              groupId = slotBelongsToGroup[slotA]
+              addToGroup(groupId, slotA)
+              addToGroup(groupId, slotB)
+            elseif (slotBGroupExists) then
+              groupId = slotBelongsToGroup[slotB]
+              addToGroup(groupId, slotA)
+              addToGroup(groupId, slotB)
+            else
+              groupId = getNewGroupId()
+              addToGroup(groupId, slotA)
+              addToGroup(groupId, slotB)
+            end
+          else
+            -- items are different
+
+            -- was A not encountered?
+            if (slotBelongsToGroup[slotA] == nil) then
+              addToGroup(getNewGroupId(), slotA)
+            end
+
+            -- was B not encountered?
+            if (slotBelongsToGroup[slotB] == nil) then
+              addToGroup(getNewGroupId(), slotB)
+            end
+          end
+        end
+      end -- end compareMatches
+
+
+      if (#slotsWithItems == 1) then
+        -- execute for w/e that record is
+        for slotNum, junk in ipairs(slotsWithItems) do
+          addToGroup(getNewGroupId(), slotNum)
+        end
+      elseif (#slotsWithItems > 1) then
+        for slotNumA, junk in ipairs(slotsWithItems) do
+          for slotNumB, junk in ipairs(slotsWithItems) do
+            if (slotNumA ~= slotNumB) then
+              compareMatches(slotNumA, slotNumB)
+            end
+          end
+        end
+      end
+
+      print('slot groupings')
+      for slotNum, groupId in ipairs(slotBelongsToGroup) do
+        if (groupId ~= nil) then
+          print(string.format('#%s = %s', slotNum, groupId))
+        end
+      end
+    end
+
+    -- turtle.select(initialSelectedSlot)
+  end
+
+  -- propmt the user to identify items
+  function userIdentifyItems()
+
+    local printUserInstructions = function()
+      print(string.format('Hello, please help me to identify these items'))
+    end
+
+    local countEmptyTypes = countEmptySpaceTypes() -- these do not need to be identified
+    local maxInvenSize = getInventorySize()
+
+    if (#mItemLabels - countEmptyTypes > maxInvenSize) then
+      print(string.format('There are more items to identify than the turtle has space'))
+      print(string.format('Pattern should have %s or less types on block in pattern', maxInvenSize))
+      return false
+    end
+   
+    for itemKey, itemLabel in pairs(mItemLabels) do
+      if (not isEmptySpace(itemKey)) then
+
+      end
+    end
+
+  end
+
+  constructor()
+  return {
+    userIdentifyItems = userIdentifyItems,
+  }
+end
+
+
+
+local Turtle = function()
+
+  local TURTLE_DATA_STORAGE_PATH = './data/turtle'
+
+  local mInventorySystem
+
+  -- Nav system reltated ------------------------------------------------
+  -- will refer to the key indication a direction [N S E W] as a "dir"
+  -- and  refer to the value that key acceses as the "direction"
+  local mRelativePos
+  local mHomePos
+  local mHomeFacingDir
+  local mFacingDir
+  local mHasValidNavData
+  local mDirections
+  local mIndexToDirMap
+  local mVectorHashMap
+  -- -------------------------------------------------------------------
+
+  function constructor()
+    local thisTurtle = getPublic();
+    local hardCodedDirection = 'E' -- @TODO
+
+    initNavSystem(hardCodedDirection)
+    mInventorySystem = InventorySystem(thisTurtle)
+  end
+
+
+  -- --------------------------------
+
+  -- Directions
+
+  function initNavSystem(homeDirection)
+    mFacingDir = homeDirection
+    mHomeFacingDir = homeDirection
+    mRelativePos = vector.new(0, 0, 0)
+    mHomePos = vector.new(0, 0, 0)
+    mHasValidNavData = false
+
+    mDirections = {}
+    mIndexToDirMap = {}
+    mVectorHashMap = {}
+
+    local direction
+    local key
+          dirIndex = 0
+  
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'N'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'north'
+          direction['vector'] = vector.new(0, 0, -1)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+          
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'E'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'east'
+          direction['vector'] = vector.new(1, 0, 0)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+          
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'S'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'south'
+          direction['vector'] = vector.new(0, 0, 1)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+  
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'W'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'west'
+          direction['vector'] = vector.new(-1, 0, 0)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+  
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'U'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'up'
+          direction['vector'] = vector.new(0, 1, 0)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+  
+          direction = {}
+          dirIndex = dirIndex + 1
+          key = 'D'
+          direction['key'] = key
+          direction['index'] = dirIndex
+          direction['label'] = 'down'
+          direction['vector'] = vector.new(0, -1, 0)
+          direction['hash'] = hashVector(direction['vector'])
+          mIndexToDirMap[dirIndex] = key
+          mDirections[key] = direction
+    
+    -- Create a look up table of vector hashes
+    -- link by reference to direction table information
+    -- look up by vector hash
+    for key, direction in pairs(mDirections) do 
+      mVectorHashMap[direction.hash] = direction
+    end
+
+    -- check local storage if there is any nav data
+    loadNavData()
+
+    -- if not set the new home
+    if (not mHasValidNavData) then
+      setHome()
+    end
+  end
+  
+  function getPos()
+    return mRelativePos
+  end
+
+  function isValidDir(dir)
+    if (dir == 'N' or dir == 'E' or dir == 'S' or dir == 'W') then 
+      return true
+    end
+    return false
+  end
+
+  function getDirection(dir)
+    return mDirections[dir]
+  end
+
+  function getDirectionByVector(v)
+    if (v == nil) then
+      return nil
+    end
+    
+    local temp = vector.new(v.x, v.y, v.z)
+    temp = temp:normalize()
+
+    print('temp')
+    printVector(temp)
+    local hash = hashVector(temp);
+    print(string.format("\nhash [%s]", hash))
+
+    local direction = mVectorHashMap[hash]
+
+    if (direction ~= nil) then 
+      print(direction['key'])
+      return direction['key']
+    else
+      print('hash not found')
+      dump(direction)
+    end
+  end
+
+  function getTurnCountBetweenDirections(currentDir, desiredDir)
     if (not isValidDir(currentDir) or not isValidDir(desiredDir)) then
       print('INVALID direction. Valid options include [N, E, S, W]')
       return 0
@@ -237,9 +534,7 @@ local Turtle = function()
     local minValue = nil
     local minAbsValue = nil
 
-    print('--------')
     for k, calc in pairs(calcs) do
-      print(calc)
       local absCalc = math.abs(calc)
       if (minValue == nil or absCalc < minAbsValue) then
         -- print(absCalc)
@@ -250,7 +545,6 @@ local Turtle = function()
 
     return minValue
   end
-
 
   function getTurnDirection(dir, inc)
     if (inc == nil) then 
@@ -267,33 +561,36 @@ local Turtle = function()
     end
   end
 
+  -- --------------------------------
 
-  function getHomeFacingDirection()
-    return getDirection(mHomeFacingDir)
-  end
+  -- Home 
 
   function getHomePos()
     return mHomePos
   end
 
-  function getDirection(dir)
-    return mDirections[dir]
+  function getHomeFacingDirection()
+    return getDirection(mHomeFacingDir)
+  end
+
+  function isHome()
+    return vEqual(mHomePos, getPos()) and mFacingDir == mHomeFacingDir
+  end
+
+  -- --------------------------------
+
+  -- Facing Direction
+
+  function getFacingDir()
+    return mFacingDir
   end
 
   function getFacingDirection()
-    return getDirection(mFacingDir)
+    return getDirection(getFacingDir())
   end
 
   function printFacingDir()
-    print(string.format("\nfacing: [%s]", mFacingDir))
-  end
-
-  function getFacingDirectionKey()
-    local facingDir = getFacingDirection()
-    if (facingDir ~= nil) then
-      return facingDir.key
-    end
-    return nil
+    print(string.format("\nfacing: [%s]", getFacingDir()))
   end
   
   function getRightDir()
@@ -320,31 +617,10 @@ local Turtle = function()
     end
   end
 
-  function getDirectionByVector(v)
-    if (v == nil) then
-      return nil
-    end
-    
-    local temp = vector.new(v.x, v.y, v.z)
-    temp = temp:normalize()
 
-    print('temp')
-    printVector(temp)
-    local hash = hashVector(temp);
-    print(string.format("\nhash [%s]", hash))
+  -- --------------------------------
 
-    local direction = vDir[hash]
-
-    if (direction ~= nil) then 
-      print(direction['key'])
-      return direction['key']
-    else
-      print('hash not found')
-      dump(direction)
-    end
-  end
-
-
+  -- Nav Data
 
   function getNavData()
     local sFileName = 'nav';
@@ -412,7 +688,7 @@ local Turtle = function()
 
   function setCurrentLocation()
     local data = getNavData()
-    local p = mRelativePos;
+    local p = getPos();
 
     -- update current location / orientation
     -- relative to start location
@@ -461,12 +737,48 @@ local Turtle = function()
   function printNav()
     print('------------------------------------')
     print("\nCurrent pos:")
-    printVector(mRelativePos)
+    printVector(getPos())
     print(string.format("\Current facing: [%s]", mFacingDir))
     print(string.format("\nHome facing: [%s]", mHomeFacingDir))
     print(string.format("\n"))
   end
 
+
+  -- --------------------------------
+
+  -- Movement
+
+  function turnLeft(times)
+    times = toNumber(times, 1)
+    local newDir
+    for i=1, times do
+      newDir = getLeftDir()
+      if (turtle.turnLeft()) then
+        mFacingDir = newDir
+        setCurrentLocation()
+        printFacingDir()
+      else
+        return false
+      end
+    end
+    return true
+  end
+
+  function turnRight(times)
+    times = toNumber(times, 1)
+    local newDir
+    for i=1, times do
+      newDir = getRightDir()
+      if (turtle.turnRight()) then
+        mFacingDir = newDir
+        setCurrentLocation()
+        printFacingDir()
+      else
+        return false
+      end
+    end
+    return true
+  end
 
   function turn(clockwiseTurns)
     if (clockwiseTurns < 0) then
@@ -475,14 +787,6 @@ local Turtle = function()
       turnRight(clockwiseTurns)
     end
   end
-
-  function isValidDir(dir)
-    if (dir == 'N' or dir == 'E' or dir == 'S' or dir == 'W') then 
-      return true
-    end
-    return false
-  end
-
 
   function face(dir)
     if (dir == nil) then
@@ -496,91 +800,23 @@ local Turtle = function()
     end
   end
 
+  function forward(times)
+    times = toNumber(times, 1)
+    local facingDir = getFacingDirection()
+    for i=1, times do
+      print('forward')
+      if (turtle.forward()) then
+        print('1')
 
-  function moveZ(posZ)
-    --print(string.format("\n moveZ [%s]", posZ))
-
-    local dZ = posZ - mRelativePos.z
-    local adZ = math.abs(dZ)
-      
-    if (adZ > 0) then
-      local directionVector = vector.new(0, 0, dZ)
-      local moveDirection = getDirectionByVector(directionVector)
-      if (moveDirection ~= nil) then 
-        face(moveDirection)
-        forward(adZ)
+        mRelativePos = mRelativePos + facingDir['vector']
+        printVector(mRelativePos)
+        setCurrentLocation()
+      else 
+        print('X')
+        return false
       end
     end
-  end
-
-  function moveX(posX)
-    --print(string.format("\n moveX [%s]", posX))
-
-    local dX = posX - mRelativePos.x
-    local adX = math.abs(dX)
-      
-    if (adX > 0) then
-      local directionVector = vector.new(dX, 0, 0)
-      local moveDirection = getDirectionByVector(directionVector)
-      if (moveDirection ~= nil) then 
-        face(moveDirection)
-        forward(adX)
-      end
-    end
-  end
-
-  function moveY(posY)
-    --print(string.format("\n moveY [%s]", posY))
-
-    local dY = posY - mRelativePos.y
-    local adY = math.abs(dY)
-
-    if (adY ~= 0) then
-      if (dY < 0) then
-        down(adY)
-      elseif (0 < dY) then
-        up(adY)
-      end
-    end
-  end
-
-  function leaveStation()
-    if (vEqual(mHomePos, mRelativePos) and not vEqual(mHomePos, pos)) then
-      face(mHomeFacingDir)
-      forward(1)
-    end
-  end
-
-  --
-  function moveTo(pos)
-    printVector(pos)
-    local dY = pos.y - mRelativePos.y
-
-    if (0 < dY) then
-      moveY(pos.y)
-      moveX(pos.x)
-      moveZ(pos.z)
-    else 
-      -- if moving down, stuf might have already been built, do this at the end
-      moveX(pos.x)
-      moveZ(pos.z)
-      moveY(pos.y)
-    end
-  end
-
-  function isHome()
-    return vEqual(mHomePos, mRelativePos) and mFacingDir == mHomeFacingDir
-  end
-
-  function home()
-    -- if not already home
-    if (not isHome()) then 
-      local homeDirection = getHomeFacingDirection()
-      local entrancePos = mHomePos + homeDirection['vector']
-      moveTo(entrancePos)
-      face(homeDirection['key'])
-      back(1)
-    end
+    return true
   end
 
   function back(times)
@@ -589,22 +825,6 @@ local Turtle = function()
     for i=1, times do
       if (turtle.back()) then
         mRelativePos = mRelativePos - facingDir['vector']
-        printVector(mRelativePos)
-        setCurrentLocation()
-      else 
-        return false
-      end
-    end
-    return true
-  end
-
-
-  function forward(times)
-    times = toNumber(times, 1)
-    local facingDir = getFacingDirection()
-    for i=1, times do
-      if (turtle.forward()) then
-        mRelativePos = mRelativePos + facingDir['vector']
         printVector(mRelativePos)
         setCurrentLocation()
       else 
@@ -628,7 +848,6 @@ local Turtle = function()
     return true
   end
 
-
   function down(times)
     times = toNumber(times, 1)
     for i=1, times do
@@ -643,42 +862,6 @@ local Turtle = function()
     return true
   end
 
-
-
-  function turnLeft(times)
-    times = toNumber(times, 1)
-    local newDir
-    for i=1, times do
-      newDir = getLeftDir()
-      if (turtle.turnLeft()) then
-        mFacingDir = newDir
-        setCurrentLocation()
-        printFacingDir()
-      else
-        return false
-      end
-    end
-    return true
-  end
-
-
-  function turnRight(times)
-    times = toNumber(times, 1)
-    local newDir
-    for i=1, times do
-      newDir = getRightDir()
-      if (turtle.turnRight()) then
-        mFacingDir = newDir
-        setCurrentLocation()
-        printFacingDir()
-      else
-        return false
-      end
-    end
-    return true
-  end
-
-
   function right(times)
     turnRight()
 
@@ -690,7 +873,6 @@ local Turtle = function()
     turnLeft()
     return wentAllTheWay
   end
-
 
   function left(times)
     turnLeft()
@@ -704,47 +886,218 @@ local Turtle = function()
     return wentAllTheWay
   end
 
-  function constructor()
+  -- move to Z relative to home
+  function moveZ(posZ)
+    --print(string.format("\n moveZ [%s]", posZ))
+    local attemptNum = 0
+    local attemptLimit = 100
+    while attemptNum < attemptLimit and mRelativePos.z ~= posZ do
+      attemptNum = attemptNum + 1
 
-    -- check local storage if there is any nav data
-    loadNavData()
+      local dZ = posZ - mRelativePos.z
+      local adZ = math.abs(dZ)
+        
+      if (adZ > 0) then
+        local directionVector = vector.new(0, 0, dZ)
+        local moveDirection = getDirectionByVector(directionVector)
+        if (moveDirection ~= nil) then 
+          face(moveDirection)
+          if (forward(adZ)) then
+            break
+          end
+        end
+      end
+      sleep(1) -- wait for the obstruction to move
+    end -- end while
 
-    -- if not set the new home
-    if (not mHasValidNavData) then
-      setHome()
+    if (mRelativePos.z ~= posZ) then
+      print('something was preventing the turtle from moving')
+      return false
     end
+    return true
+  end
 
+  -- move to X relative to home
+  function moveX(posX)
+    --print(string.format("\n moveX [%s]", posX))
+    local attemptNum = 0
+    local attemptLimit = 100
+    while attemptNum < attemptLimit and mRelativePos.x ~= posX do
+      attemptNum = attemptNum + 1
+
+      local dX = posX - mRelativePos.x
+      local adX = math.abs(dX)
+      if (adX > 0) then
+        local directionVector = vector.new(dX, 0, 0)
+        local moveDirection = getDirectionByVector(directionVector)
+        if (moveDirection ~= nil) then 
+          face(moveDirection)
+          if (forward(adX)) then
+            break
+          end
+        end
+      end
+      
+      if (attemptNum > 1) then
+        sleep(1) -- wait for the obstruction to move
+      end
+    end -- end while
+
+    if (mRelativePos.x ~= posX) then 
+      print('something was preventing the turtle from moving')
+      return false
+    end
+    return true
+  end
+
+  -- move to Y relative to home
+  function moveY(posY)
+    --print(string.format("\n moveY [%s]", posY))
+    local attemptNum = 0
+    local attemptLimit = 100
+    while attemptNum < attemptLimit and mRelativePos.y ~= posY do
+      attemptNum = attemptNum + 1
+
+      local dY = posY - mRelativePos.y
+      local adY = math.abs(dY)
+      if (dY < 0) then
+        if (down(adY)) then
+          break
+        end
+      elseif (0 < dY) then
+        if (up(adY)) then
+          break
+        end
+      end
+      if (attemptNum > 1) then
+        sleep(1) -- wait for the obstruction to move
+      end
+    end -- end while
+
+    if (mRelativePos.y ~= posY) then
+      print('something was preventing the turtle from moving')
+      return false
+    end
+    return true
+  end
+
+  function goTo(pos)
+    printVector(pos)
+    local dY = pos.y - mRelativePos.y
+
+    if (0 < dY) then
+      moveY(pos.y)
+      moveX(pos.x)
+      moveZ(pos.z)
+    else 
+      -- if moving down, stuf might have already been built, do this at the end
+      moveX(pos.x)
+      moveZ(pos.z)
+      moveY(pos.y)
+    end
+  end
+
+  function home()
+    -- if not already home
+    if (not isHome()) then 
+      local homeDirection = getHomeFacingDirection()
+      -- go to position 1 block infront of home
+      local entrancePos = mHomePos + homeDirection['vector']
+      goTo(entrancePos)
+
+      -- back into station
+      face(homeDirection['key'])
+      back(1)
+    end
+  end
+
+  function leaveStation()
+    if (vEqual(mHomePos, mRelativePos) and not vEqual(mHomePos, pos)) then
+      face(mHomeFacingDir)
+      forward(1)
+    end
+  end
+  
+  function getPublic()
+    return {
+      unpack(turtle), -- include all the unmentioned ones
+
+      forward         = forward,
+      back            = back,
+      up              = up,
+      down            = down,
+      turnLeft        = turnLeft,
+      turnRight       = turnRight,
+      face            = face,
+      right           = right,
+      left            = left,
+      setHome         = setHome,
+      clearNav        = deleteNavData,
+      printNav        = printNav,
+      goTo            = goTo,
+      face            = face,
+      turn            = turn,
+      home            = home,
+      isHome          = isHome,
+      leaveStation    = leaveStation,
+      getHomePos      = getHomePos,
+      turnCount       = getTurnCountBetweenDirections,
+      scanInventory   = scanInventory,
+
+      -- explicitly set the ones im gonna need to remember in this class for ref
+      select          = turtle.select,
+      getSelectedSlot = turtle.getSelectedSlot,
+      getItemCount    = turtle.getItemCount,
+      getItemSpace    = turtle.getItemSpace,
+      -- 
+      compareTo       = turtle.compareTo,
+      compare         = turtle.compare,
+      compareUp       = turtle.compareUp,
+      compareDown     = turtle.compareDown,
+      transferTo      = turtle.transferTo,
+      -- 
+      drop            = turtle.drop,
+      dropUp          = turtle.dropUp,
+      dropDown        = turtle.dropDown,
+      suck            = turtle.suck,
+      suckUp          = turtle.suckUp,
+      suckDown        = turtle.suckDown,
+      refuel          = turtle.refuel,
+      getFuelLevel    = turtle.getFuelLevel,
+      --    
+      detect          = turtle.detect,
+      detectUp        = turtle.detectUp,
+      detectDown      = turtle.detectDown,
+
+      place           = turtle.place,
+      placeUp         = turtle.placeUp,
+      placeDown       = turtle.placeDown,
+
+      dig             = turtle.dig,
+      digUp           = turtle.digUp,
+      digDown         = turtle.digDown,
+    }
   end
 
   -- execute constructor
   constructor()
 
-  return {
-    forward   = forward,
-    back      = back,
-    up        = up,
-    down      = down,
-    turnLeft  = turnLeft,
-    turnRight = turnRight,
-    face      = face,
-    right     = right,
-    left      = left,
-    setHome   = setHome,
-    clearNav  = deleteNavData,
-    printNav  = printNav,
-    moveTo    = moveTo,
-    face      = face,
-    turn      = turn,
-    home      = home,
-    isHome    = isHome,
-    leaveStation = leaveStation,
-    getHomePos = getHomePos,
-    turnCount = getTurnCountBetweenDirections
-  }
+  return getPublic()
 end
 
 
--- EXECUTE
+
+
+
+
+
+
+
+
+
+-- ############################################################
+
+-- EXECUTE COMMAND LINE SCRIPT
 
 -- Overwrite turtle variable with upgraded class
 local turtle = Turtle()
@@ -785,20 +1138,19 @@ if (#args ~= 0) then
       turtle.clearNav()
     elseif (string.lower(command) == 'printnav') then
       turtle.printNav()
-    elseif (string.lower(command) == 'moveto') then
+    elseif (string.lower(command) == 'goto') then
       local x = toNumber(args[2])
       local y = toNumber(args[3])
       local z = toNumber(args[4])
       local face = args[5]
 
       local newPos = vector.new(x, y, z)
-
       -- is home going somewhere else
       if (turtle.isHome() and not vEqual(newPos, turtle.getHomePos())) then 
         leaveStation()
       end
 
-      turtle.moveTo(newPos)
+      turtle.goTo(newPos)
 
       if (face ~= nil) then
         turtle.face(face)
@@ -814,6 +1166,8 @@ if (#args ~= 0) then
       print(string.format("\nTurns required: [%s]", turtle.turnCount(currentDir, desiredDir)))
     elseif (string.lower(command) == 'home') then
       turtle.home()
+    elseif (string.lower(command) == 'inv') then
+      turtle.scanInventory()
     else
       print('command not recognized')
     end
