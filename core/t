@@ -698,8 +698,6 @@ local InventorySystem = function()
 
   function scanInventory()
     checkInventory()
-
-    printInventory()
   end
 
   function printInventory()
@@ -775,20 +773,18 @@ local InventorySystem = function()
   end
 
   function forEachUnknownSlot(func)
-    print('forEachUnknownSlot')
     for i, slotNum in ipairs(getOrderedListOfUnknownSlots()) do
-      print(slotNum)
       func(slotNum)
     end
   end
 
   function getOrderedListOfUnknownSlots()
     local slots = {}
-    forEachUnknownItem(function(index, slotNums)
-      for i, slotNum in ipairs(slotNums) do
-        slots[tostring(slotNum)] = slotNum
+    for k, slotNums in pairs(getUnknownItemGroups()) do
+      for k2, slotNum in pairs(slotNums) do
+        table.insert(slots, slotNum)
       end
-    end)
+    end
     return orderValuesByNumber(slots)
   end
 
@@ -841,7 +837,7 @@ local InventorySystem = function()
   end
 
   function sortInventory()
-    scanInventory()
+    checkInventory()
     forEachKnownItem(function(itemKey, slotKeys) 
       consolidateSlots(slotKeys)
     end)
@@ -874,6 +870,7 @@ local InventorySystem = function()
 
 
   function dropFromSlot(slotNum, quantity)
+    print(string.format('drop %s form slot %s', quantity, slotNum))
     select(slotNum)
     return turtle.drop(quantity)
   end
@@ -886,6 +883,7 @@ local InventorySystem = function()
     compaireSlots = compaireSlots,
     scanInventory = scanInventory,
     sortInventory = sortInventory,
+    checkInventory = checkInventory,
     transferTo,
     getCountOfKnownItem = getCountOfKnownItem,
     getEmptySlot = getEmptySlot,
@@ -1609,7 +1607,7 @@ local Turtle = function()
         end
 
         pressEnterToContinue()
-        mInventorySystem.scanInventory()
+        mInventorySystem.checkInventory()
         emptySlotNum = getEmptySlot()
       end
 
@@ -1618,7 +1616,7 @@ local Turtle = function()
         face(invDirectionKey)
         mInventorySystem.select(emptySlotNum)
         turtle.suck()
-        mInventorySystem.scanInventory()
+        mInventorySystem.checkInventory()
       end
 
       iterationCounter = iterationCounter + 1
@@ -1643,7 +1641,7 @@ local Turtle = function()
 
     -- drop all unknown slots
     inv.forEachUnknownSlot(function(slotNum) 
-      print(string.format('dropping unknown items from slot [%s]', slotNum))
+      --print(string.format('dropping unknown slot [%s]', slotNum))
       local dropSuccess = inv.dropFromSlot(slotNum, inv.getSlotCount(slotNum))
       if (not dropSuccess) then
         print(string.format('could not drop slot [%s]', slotNum))
@@ -1655,19 +1653,22 @@ local Turtle = function()
     local leaveCountOfEachItem = 1;
     inv.forEachKnownItem(function(itemKey, slotNums) 
       local totalCountOfItem = inv.getCountOfKnownItem(itemKey)
-
       if (totalCountOfItem > leaveCountOfEachItem) then
         local slotNum = inv.getSlotForItem(itemKey)
         local dropAmount = math.min(inv.getSlotCount(slotNum), totalCountOfItem - leaveCountOfEachItem)
-        local dropSuccess = inv.dropFromSlot(slotNum, inv.getSlotCount(slotNum))
+
+        --print(string.format('dropping %s %s from slot [%s]', itemKey, dropAmount, slotNum))
+        local dropSuccess = inv.dropFromSlot(slotNum, dropAmount)
         if (not dropSuccess) then
-          print(string.format('could not drop %s from slot [%s]', dropAmount, slotNum))
+          print(string.format('could not drop %s %s from slot [%s]', itemKey, dropAmount, slotNum))
           pressEnterToContinue()
         end
       end
     end)
 
-    inv.scanInventory()
+
+    inv.checkInventory()
+    printInventory()
     face(homeDirectionKey)
 
     print('ready to scan')
