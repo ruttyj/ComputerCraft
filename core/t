@@ -1,6 +1,6 @@
 -- Turtle script
 -- allow for manual or automatic control
-  
+local args = {...}
 
 
 
@@ -8,6 +8,10 @@
 
 --               GLOBAL FUNCTIONS
 
+function pressEnterToContinue()
+  print('press enter to continue')
+  read()
+end
 
 function jsonEncode(v)
   return textutils.serialize(v)
@@ -42,6 +46,10 @@ function printTable(t, offset)
     end
     sleep(0.1)
   end
+end
+
+function clamp(value, min, max)
+  return math.max(min, math.min(toNumber(value, min), max))
 end
 
 function dump(v)
@@ -87,18 +95,71 @@ function vEqual(v1, v2)
      and  v1.z == v2.z
 end
 
-function strJoin(list, delimiter)
-  local len = #list
-  if len == 0 then
-     return "" 
+function first(table)
+  for key, value in pairs(table) do 
+    return value
   end
-  local string = list[1]
-  for i = 2, len do 
-     string = string .. delimiter .. list[i] 
-  end
-  return string
+  return nil
 end
 
+function tableLength(T)
+  local count = 0
+  for junk in pairs(T) do count = count + 1 end
+  return count
+end
+
+function reverse(mytable)
+  local result = {}
+
+  for i=1, #mytable do
+    table.insert(result, mytable[#mytable + 1 - i])
+  end
+
+  return result;
+end
+
+function strJoin(list, delimiter)
+  if (type(list) ~= 'table') then
+    return ''
+  end
+
+  if (delimiter == nill) then 
+    delimiter = ','
+  end
+
+  local result = ''
+  local counter = 0
+  local len = tableLength(list)
+  for i, string in pairs(list) do 
+    result = result .. string 
+    counter = counter + 1
+    if(counter ~= len) then
+      result = result .. delimiter
+    end
+  end
+  return result
+end
+
+-- The table keys bug out if they arnt strings
+-- will acces that nth position instead of arr[8] for example
+-- this function is to convert the hash map ['8'] = 8
+-- to its numerical value which can be sorted
+-- and then converted to an array of 
+function orderValuesByNumber(arr)
+
+  local temp = {}
+  for key, value in pairs(arr) do
+    table.insert(temp, tonumber(value))
+  end
+
+  table.sort(temp)
+
+  for index, value in ipairs(temp) do
+    temp[index] = tostring(value)
+  end
+
+  return temp
+end
 
 function hashVector(v)
   return strJoin({v.x, v.y, v.z}, '|')
@@ -128,110 +189,302 @@ function getFileContents(sPath)
 end
 
 
-local InventorySlot = function()
-  function constructor()
-
-  end
-
-  function getPublic()
-    return {
-
-    }
-  end
-
-  constructor()
-  return getPublic()
-end
-
-
-local InventorySystem = function(turtle)
+local InventorySystem = function()
 
   local mItemLabels = {}
-  local ITEM_KEY_EMPTY = ' ';
-  local mSpecialItems = {ITEM_KEY_EMPTY}
+  local ITEM_KEY_EMPTY = ' '
+  local ITEM_KEY_FUEL = '!'
+  local mSpecialItems = {ITEM_KEY_EMPTY, ITEM_KEY_FUEL}
 
+  local mSelectedSlot = 1;
 
-  local ITEM_KEY_FUEL = 'Fuel'
-  local mItemInSlots = {}
-  local mEmptySlots = {}
-  local mSlots = {}
-  local mKnownSlots = {}
+  local mItemSlotMap = {}  -- {ITEM_KEY_FUEL = { 1=1, 5=5, 9=9 }, ...}
+  local mEmptySlots = {}   -- {2=2, 14=14, 15=15, 16=16}
+  local mKnownSlots = {}   -- {1=ITEM_KEY_FUEL}
+
+  local mItemGroupings = {}
+  local mUnknownItemGroups = {}
+
 
   function constructor()
     mItemLabels = {}
     mItemLabels[ITEM_KEY_EMPTY] = 'empty block'
+    mItemLabels[ITEM_KEY_FUEL] = 'fuel source'
     mItemLabels['R'] = 'rock'
-    mItemLabels['F'] = 'furnace'
-    mItemLabels['H'] = 'frame housing'
-    mItemLabels['A'] = 'alv'
-    mItemLabels['L'] = 'alv light'
-    mItemLabels['B'] = 'rain barrier'
-    mItemLabels['S'] = 'slab'
-    mItemLabels['T'] = 'teseract'
-    mItemLabels['W'] = 'wooden pipe'
-    mItemLabels['P'] = 'aprist pipe'
+    --mItemLabels['F'] = 'furnace'
+    --mItemLabels['H'] = 'frame housing'
+    --mItemLabels['A'] = 'alv'
+    --mItemLabels['L'] = 'alv light'
+    --mItemLabels['B'] = 'rain barrier'
+    --mItemLabels['S'] = 'slab'
+    --mItemLabels['T'] = 'teseract'
+    --mItemLabels['W'] = 'wooden pipe'
+    --mItemLabels['P'] = 'aprist pipe'
+
+    mKnownSlots = {}
+    mKnownSlots['1'] = ITEM_KEY_FUEL
+    mKnownSlots['2'] = 'R'
+
+    select(1, true)
   end
 
-  function isEmptySpace(itemKey)
+
+  function getItemLabel(itemKey)
+    if (mItemLabels[itemKey] ~= nil) then 
+      return mItemLabels[itemKey]
+    end
+    --return ''
+  end
+
+  function select(numSlot, force)
+    if (force == nil) then
+      force = false
+    end
+
+    numSlot = clamp(numSlot, 0, getInventorySize())
+
+    if (numSlot ~= mSelectedSlot or force) then 
+      mSelectedSlot = numSlot
+      turtle.select(mSelectedSlot)
+    end
+  end
+
+  function getSelectedSlot()
+    return mSelectedSlot
+  end
+
+  function isEmptyItemKey(itemKey)
     return ITEM_KEY_EMPTY == itemKey
   end
 
   function getInventorySize()
-    return 16;
+    return 16
   end
 
   function countEmptySpaceTypes()
     return 1
   end
 
+  
+  function getSlotSpace(slotKey)
+    local slotNum = toNumber(slotKey, 0)
+    return toNumber(turtle.getItemSpace(slotNum), 0)
+  end
+
+  function getSlotCount(slotKey)
+    local slotNum = toNumber(slotKey, 0)
+    return toNumber(turtle.getItemCount(slotNum), 0)
+  end
+
+  function getSlotLimit(slotNum)
+    return getSlotCount(slotNum) + getSlotSpace(slotNum)
+  end
+
+  function getEmptySlots()
+    return mEmptySlots
+  end
+
+  function setSlotEmpty(slotNum)
+    forgetSlot(slotNum)
+    mEmptySlots[tostring(slotNum)] = slotNum
+  end
+
+  function forgetSlot(slotNum)
+    local slotKey = tostring(slotNum)
+
+
+    -- remove from knowns
+    table.remove(mKnownSlots, slotKey)
+    -- remove from itemMap of slots
+    if (hasSlotItemKey(slotKey)) then 
+      removeSlotFromKnownGroup(mKnownSlots, slotKey)
+    end
+
+    -- remove from unknowns
+    removeFromUnknownGroups(slotKey)
+  end
+
+  function setAllEmptySlots(group)
+    mEmptySlots = group
+    for k, slotKey in pairs(group) do
+      forgetSlot(slotKey)
+      removeFromUnknownGroups(slotKey)
+    end
+    setSlotsForItemKey(ITEM_KEY_EMPTY, group)
+  end
+
+  function isKnownSlot(slotNum)
+    return mKnownSlots[tostring(slotNum)] ~= nil
+  end
+
+  function hasSlotItemKey(slotNum)
+    return mKnownSlots[tostring(slotNum)] ~= nil
+  end
+
+  function getSlotItemKey(slotNum)
+    return mKnownSlots[tostring(slotNum)]
+  end
+
+  function setKnownSlot(slotNum, itemKey)
+    mKnownSlots[tostring(slotNum)] = itemKey
+    removeFromUnknownGroups(slotNum)
+  end
+
+  
+
+  function setSlotsForItemKey(itemKey, group)
+    -- record where we can access this item
+    if (itemKey ~= ITEM_KEY_EMPTY) then
+      mItemSlotMap[tostring(itemKey)] = group
+    end
+
+    -- mark slots as known
+    for key, slotNum in pairs(group) do
+      setKnownSlot(slotNum, itemKey)
+    end
+  end
+
+  function getSlotsForItem(itemKey)
+    itemKey = tostring(itemKey)
+    if (mItemSlotMap[itemKey] ~= nil) then
+      return mItemSlotMap[itemKey]
+    end
+
+    return {}
+  end
+
+  function restUnknownItems()
+    mUnknownItemGroups = {}
+  end
+
+  function addUnknowItemGroup(group)
+    table.insert(mUnknownItemGroups, group)
+    for key, slotNum in pairs(group) do
+      table.remove(mKnownSlots, slotNum)
+    end
+  end
+
+  function isUnknownSlot(slotNum)
+    local slotKey = tostring(slotNum)
+    for k, slotList in pairs(mUnknownItemGroups) do
+      -- exists in list?
+      if(slotList[slotKey] ~= nil) then
+        -- if its in the unknow groupings we know its unknown
+        return true
+      end
+    end
+    return false
+  end
+  
+
+  function getUnknownItemGroups()
+    return mUnknownItemGroups
+  end
+
+  function removeFromUnknownGroups(slotNum)
+    for key, group in pairs(mUnknownItemGroups) do
+      table.remove(group, tostring(slotNum))
+      if (tableLength(group) == 0) then
+        table.remove(mUnknownItemGroups, key)
+      end
+    end
+  end
+
+  function removeSlotFromKnownGroup(itemKey, slotKey)
+    itemKey = tostring(itemKey)
+    slotKey = tostring(slotKey)
+    if (mItemSlotMap[itemKey] ~= nil) then
+      local group = mItemSlotMap[itemKey];
+
+      table.remove(group, slotKey)
+      mItemSlotMap[itemKey] = group
+
+      if (tableLength(group) == 0) then
+        table.remove(mItemSlotMap, key)
+      end
+    end
+  end
+  
+
+  function getSlotNumRange(len, offset)
+    if (offset == nil) then
+      offset = 0
+    end
+
+    local results = {}
+    local invenSize = getInventorySize()
+    for slotNum = 1 + offset, len do 
+      if (0 < slotNum and slotNum <= invenSize) then
+        table.insert(results, slotNum)
+      end
+    end
+    return results
+  end
 
 
 
-
-  function scanInventory()
-    --local initialSelectedSlot = turtle.getSelectedSlot() -- not a thing
+  -- only finds grouping of items
+  -- slots with the same items will be stored in mItemGroupings
+  -- empty slots will be stored in mEmptySlots
+  function findItemGroupings()
+    local initialSelectedSlot = getSelectedSlot()
 
     local slotsWithItems = {}
-    for slotNum = 1, getInventorySize() do 
-      local itemCount = toNumber(turtle.getItemCount(slotNum), 0)
-      local itemSpace = toNumber(turtle.getItemSpace(slotNum), 0)
-      local maxSize = itemCount + itemSpace
+    local emptySlots = {}
 
+    -- check which slots have items
+    for slotNum = 1, getInventorySize() do 
+      local itemCount = getSlotCount(slotNum)
       if (itemCount > 0) then
-        slotsWithItems[slotNum] = slotNum
-        print(string.format('Slot num #%s [%s/%s]', slotNum, itemCount, maxSize))
-        --sleep(1)
+        slotsWithItems[tostring(slotNum)] = slotNum
+        --local itemSpace = getSlotSpace(slotNum)
+        --local maxSize = getSlotLimit(slotNum)
+        --print(string.format('Slot num #%s [(%s:%s)/%s]', slotNum, itemCount, itemSpace, maxSize))
+      else
+        emptySlots[tostring(slotNum)] = slotNum
       end
     end
 
+    -- build result of item groupings
+    local results = {}
+   
+    -- record empty slots as sideeffect
+    setAllEmptySlots(emptySlots)
 
-    if (#slotsWithItems > 0) then
+    local slotsWithItemCount = tableLength(slotsWithItems)
 
+    -- Find and add groups of items
+    if (slotsWithItemCount > 0) then
       local itemGroupTopId = 0
       local itemGroups = {}
-
       local slotBelongsToGroup = {}
 
       local getNewGroupId = function()
         itemGroupTopId = itemGroupTopId + 1
-        return itemGroupTopId
+        return tostring(itemGroupTopId)
       end
 
       local addToGroup = function(groupId, slotNum)
+        groupId = tostring(groupId)
+        slotNum = tostring(slotNum)
+
         if (itemGroups[groupId] == nil) then
           itemGroups[groupId] = {}
         end
 
-        table.insert(itemGroups[groupId], slotNum)
+        itemGroups[groupId][slotNum] = slotNum
         slotBelongsToGroup[slotNum] = groupId
       end
 
       local mergeGroupInto = function(fromGroupId, toGroupId)
+        fromGroupId = tostring(fromGroupId)
+        toGroupId = tostring(toGroupId)
+
         if (itemGroups[fromGroupId] ~= nil and fromGroupId ~= toGroupId) then
-          for index, slotNum in pairs(itemGroups[fromGroupId]) do
+          for key, slotNum in pairs(itemGroups[fromGroupId]) do
             addToGroup(toGroupId, slotNum)
           end
-          itemGroups[fromGroupId] = nil
+          table.remove(itemGroups, fromGroupId)
         end
       end
 
@@ -239,35 +492,30 @@ local InventorySystem = function(turtle)
       -- define a function to compare all slots
       -- find which ones are the same item
       local compareMatches = function (slotA, slotB)
-        
-
         -- if we are compairing to nothing
         -- just group the one we know
         -- for situation when only 1 item is in inventory we still want to group it
         if (slotA ~= nil and slotB ~= nil) then
-          turtle.select(slotA)
-          local itemsInBothSlotsMatch = turtle.compareTo(slotB)
+          select(slotA) -- <- this takes time
+          local itemsInBothSlotsMatch = turtle.compareTo(tonumber(slotB))
+
+          local slotKeyA = tostring(slotA);
+          local slotKeyB = tostring(slotB)
 
           if (itemsInBothSlotsMatch) then
             -- both items are the same
-            local groupId = nil
-
-            local slotAGroupExists = slotBelongsToGroup[slotA] ~= nil
-            local slotBGroupExists = slotBelongsToGroup[slotB] ~= nil
+            local slotAGroupExists = slotBelongsToGroup[slotKeyA] ~= nil
+            local slotBGroupExists = slotBelongsToGroup[slotKeyB] ~= nil
           
-            if (slotAGroupExists and slotBGroupExists and (slotBelongsToGroup[slotA] ~= slotBelongsToGroup[slotB])) then
-              -- merge groups, remove other
-              mergeGroupInto(slotBelongsToGroup[slotB], slotBelongsToGroup[slotA])
+            if (slotAGroupExists and slotBGroupExists and (slotBelongsToGroup[slotKeyA] ~= slotBelongsToGroup[slotKeyB])) then
+              mergeGroupInto(slotBelongsToGroup[slotKeyB], slotBelongsToGroup[slotKeyA])
+              --sleep(3)
             elseif (slotAGroupExists) then
-              groupId = slotBelongsToGroup[slotA]
-              addToGroup(groupId, slotA)
-              addToGroup(groupId, slotB)
+              addToGroup(slotBelongsToGroup[slotKeyA], slotB)
             elseif (slotBGroupExists) then
-              groupId = slotBelongsToGroup[slotB]
-              addToGroup(groupId, slotA)
-              addToGroup(groupId, slotB)
+              addToGroup(slotBelongsToGroup[slotKeyB], slotA)
             else
-              groupId = getNewGroupId()
+              local groupId = getNewGroupId()
               addToGroup(groupId, slotA)
               addToGroup(groupId, slotB)
             end
@@ -275,44 +523,209 @@ local InventorySystem = function(turtle)
             -- items are different
 
             -- was A not encountered?
-            if (slotBelongsToGroup[slotA] == nil) then
+            if (slotBelongsToGroup[slotKeyA] == nil) then
               addToGroup(getNewGroupId(), slotA)
             end
 
             -- was B not encountered?
-            if (slotBelongsToGroup[slotB] == nil) then
+            if (slotBelongsToGroup[slotKeyB] == nil) then
               addToGroup(getNewGroupId(), slotB)
             end
           end
         end
       end -- end compareMatches
 
+      
 
-      if (#slotsWithItems == 1) then
+
+      if (slotsWithItemCount == 1) then
         -- execute for w/e that record is
-        for slotNum, junk in ipairs(slotsWithItems) do
-          addToGroup(getNewGroupId(), slotNum)
+        for slotKey, junk in pairs(slotsWithItems) do
+          addToGroup(getNewGroupId(), slotKey)
         end
-      elseif (#slotsWithItems > 1) then
-        for slotNumA, junk in ipairs(slotsWithItems) do
-          for slotNumB, junk in ipairs(slotsWithItems) do
-            if (slotNumA ~= slotNumB) then
-              compareMatches(slotNumA, slotNumB)
+      elseif (slotsWithItemCount > 1) then
+        -- compare all to find groups
+        local slotKeyOrdered = orderValuesByNumber(slotsWithItems)
+
+        for keyA, slotKeyA in ipairs(slotKeyOrdered) do
+          for keyB, slotKeyB in ipairs(slotKeyOrdered) do
+            if (slotKeyA ~= slotKeyB) then
+              compareMatches(slotKeyA, slotKeyB)
             end
           end
         end
       end
 
-      print('slot groupings')
-      for slotNum, groupId in ipairs(slotBelongsToGroup) do
+     
+      local temp = {}
+      for slotKey, groupId in pairs(slotBelongsToGroup) do
         if (groupId ~= nil) then
-          print(string.format('#%s = %s', slotNum, groupId))
+          if (temp[groupId] == nil) then
+            temp[groupId] = {}
+          end
+          temp[groupId][slotKey] = slotKey
         end
+      end
+
+
+      for groupId, slotList in pairs(temp) do
+        table.insert(results, slotList)
       end
     end
 
-    -- turtle.select(initialSelectedSlot)
+    -- restore selected slot
+    select(initialSelectedSlot)
+
+    mItemGroupings = results
   end
+
+  -- if a player manually changes the inventory
+  -- then the known items will no longer line up the groupings
+  -- forget items that do not line up with groupings
+  function resolveConflictsWithKnown()
+    print('resolving conflicts with known')
+    for index, group in ipairs(mItemGroupings) do
+      local itemsFound = {}
+      for key, slotKey in pairs(group) do
+        if (isKnownSlot(slotKey)) then
+          -- get item key for slot
+          itemKey = getSlotItemKey(slotKey)
+          if (itemsFound[itemKey] == nil) then
+            itemsFound[itemKey] = {}
+          end
+          table.insert(itemsFound[itemKey], slotKey)
+          print(string.format('slot [%s] item [%s]', slotKey, itemKey))
+          sleep(0.5)
+        end
+      end
+
+      -- if we find more than one itemtype in a grouping
+      if (#itemsFound > 1) then
+        print(string.format('conflict found'));
+        sleep(2)
+        -- find what it actually is
+        local itemTypeCounts
+
+        local maxCount = nil
+        local dominantItem = nil
+        for itemKey, slotList in pairs(itemsFound) do
+          itemTypeCounts[itemKey] = #slotList
+
+          if (maxCount == nil or maxCount < #slotList) then
+            maxCount = #slotList
+            dominantItem = itemKey
+          elseif(maxCount == #slotList) then
+            dominantItem = nil -- we cant have a tie for which to pick
+          end
+        end
+
+        print('itemTypeCounts')
+        print(jsonEncode(itemTypeCounts))
+        sleep(10)
+
+
+        -- forget any slots that is not the dominant items in this group
+        -- forget all if none of them are dominant
+        for itemKey, slotList in pairs(itemsFound) do
+          if (dominantItem == nil or dominantItem ~= itemKey) then 
+            for index, slotKey in ipairs(slotList) do
+              forgetSlot(slotKey)
+            end
+          end
+        end
+
+        print(jsonEncode(mKnownSlots))
+        sleep(60)
+      end
+    end
+  end
+
+
+
+  function getItemGroupings()
+    return mItemGroupings
+  end
+
+  
+  function checkInventory()
+    print('checking inventory')
+
+    findItemGroupings()
+
+    resolveConflictsWithKnown()
+
+    mItemSlotMap = {}
+
+    -- Identify groups
+    for index, group in ipairs(mItemGroupings) do
+      local itemKey = nil;
+      for key, slotNum in pairs(group) do
+        if (isKnownSlot(slotNum)) then 
+          itemKey = getSlotItemKey(slotNum)
+          break;
+        end
+      end
+      -- group has been identified
+      if (itemKey ~= nil) then
+        setSlotsForItemKey(itemKey, group)
+      end
+    end
+
+
+    -- Index unknown groups
+    restUnknownItems()
+    for index, group in ipairs(mItemGroupings) do
+      local firstSlotOfGroup = first(group);
+      if (not isKnownSlot(firstSlotOfGroup)) then 
+        addUnknowItemGroup(group)
+      end
+    end
+
+    -- everything else uncaugh is unknown
+    for slotNum=1, getInventorySize() do
+      if (not isKnownSlot(slotNum) and not isUnknownSlot(slotNum)) then
+        local group = {}
+        group[tostring(slotNum)] = slotNum
+        addUnknowItemGroup(group)
+      end
+    end
+  end
+  
+
+  function getKnownItems()
+    return mItemSlotMap
+  end
+
+  function scanInventory()
+    checkInventory()
+
+    printInventory()
+  end
+
+  function printInventory()
+    for itemKey, slots in pairs(getKnownItems()) do
+      local itemLabel = getItemLabel(itemKey)
+      print(string.format('%s [%s]', itemLabel, strJoin(orderValuesByNumber(slots), ', ')))
+    end
+    -- print unknown groups
+    for index, slots in pairs(getUnknownItemGroups()) do
+      print(string.format('?#%s [%s]', index, strJoin(orderValuesByNumber(slots), ', ')))
+    end
+    -- print empty slots
+    print(string.format('empty slots [%s]', strJoin(orderValuesByNumber(getEmptySlots()), ', ')))
+  end
+
+
+  function compaireSlots(slotA, slotB)
+    local initialSelectedSlot = getSelectedSlot()
+    select(slotA)
+
+    local result = turtle.compareTo(slotB)
+
+    select(initialSelectedSlot)
+    return result;
+  end
+
 
   -- propmt the user to identify items
   function userIdentifyItems()
@@ -331,16 +744,159 @@ local InventorySystem = function(turtle)
     end
    
     for itemKey, itemLabel in pairs(mItemLabels) do
-      if (not isEmptySpace(itemKey)) then
-
+      if (not isEmptyItemKey(itemKey)) then
+        -- ask users to place this item in active slot
       end
     end
 
   end
 
+
+  function forEachKnownItem(func)
+    for itemKey, slotNums in pairs(getKnownItems()) do
+      func(itemKey, slotNums)
+    end
+  end
+
+  function getSlotForItem(itemKey)
+    itemKey = tostring(itemKey)
+    local knownItems = getKnownItems()
+    if (knownItems[itemKey] ~= nil) then
+      local slotKeys = orderValuesByNumber(knownItems[itemKey])
+      -- we should use out of the last pile
+      return slotKeys[#slotKeys]
+    end
+  end
+
+  function forEachUnknownItem(func)
+    for index, slotNums in ipairs(getUnknownItemGroups()) do
+      func(index, slotNums)
+    end
+  end
+
+  function forEachUnknownSlot(func)
+    print('forEachUnknownSlot')
+    for i, slotNum in ipairs(getOrderedListOfUnknownSlots()) do
+      print(slotNum)
+      func(slotNum)
+    end
+  end
+
+  function getOrderedListOfUnknownSlots()
+    local slots = {}
+    forEachUnknownItem(function(index, slotNums)
+      for i, slotNum in ipairs(slotNums) do
+        slots[tostring(slotNum)] = slotNum
+      end
+    end)
+    return orderValuesByNumber(slots)
+  end
+
+  function transferTo(slotNum, quantity)
+    return turtle.transferTo(toNumber(slotNum, 0), quantity)
+  end
+
+  function consolidateSlots(slotKeys)
+    orderedSlotKeys = orderValuesByNumber(slotKeys)
+    if (#orderedSlotKeys > 1) then
+  
+      -- in order of slot num
+      -- mmove items from the back of the list to the front
+      local processedKeys = {}
+      for index1, slotKey in ipairs(orderedSlotKeys) do
+        processedKeys[tostring(slotKey)] = true
+  
+        -- if this slot has space
+        local canFit = getSlotSpace(slotKey)
+        if (canFit > 0) then
+          -- scan from the end of the group
+          for index2, checkingSlotKey in ipairs(reverse(orderedSlotKeys)) do 
+            if (processedKeys[tostring(checkingSlotKey)] ~= true) then
+
+              -- if there are items in this slot, transfer to beginning of list
+              local checkingSlotItemCount = getSlotCount(checkingSlotKey)
+              if (checkingSlotItemCount > 0) then
+                local canTransferNumber = math.min(canFit, checkingSlotItemCount)
+
+                -- transfer
+                select(checkingSlotKey)
+                transferTo(slotKey, canTransferNumber)
+
+                -- check if empty
+                if (getSlotCount(checkingSlotKey) == 0) then
+                  setSlotEmpty(checkingSlotKey)
+                end
+  
+                -- check if can fit more
+                canFit = getSlotSpace(slotKey)
+                if (canFit == 0) then
+                  break
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  function sortInventory()
+    scanInventory()
+    forEachKnownItem(function(itemKey, slotKeys) 
+      consolidateSlots(slotKeys)
+    end)
+    forEachUnknownItem(function(index, slotKeys) 
+      consolidateSlots(slotKeys)
+    end)
+    checkInventory()
+
+    print('Inventory Sorted')
+    printInventory()
+  end
+
+  function getCountOfKnownItem(itemKey)
+    local orderedSlotKeys = orderValuesByNumber(getSlotsForItem(itemKey))
+    local total = 0
+    for i, slotKey in ipairs(orderedSlotKeys) do
+      total = total + getSlotCount(slotKey)
+    end
+
+    return total
+  end
+
+  function getEmptySlot()
+    local orderedList = orderValuesByNumber(getEmptySlots())
+    if (#orderedList > 0) then
+      return orderedList[1] -- return first
+    end
+    return nil
+  end
+
+
+  function dropFromSlot(slotNum, quantity)
+    select(slotNum)
+    return turtle.drop(quantity)
+  end
+
   constructor()
   return {
     userIdentifyItems = userIdentifyItems,
+    getSelectedSlot = getSelectedSlot,
+    select = select,
+    compaireSlots = compaireSlots,
+    scanInventory = scanInventory,
+    sortInventory = sortInventory,
+    transferTo,
+    getCountOfKnownItem = getCountOfKnownItem,
+    getEmptySlot = getEmptySlot,
+    getOrderedListOfUnknownSlots = getOrderedListOfUnknownSlots,
+    forEachUnknownSlot = forEachUnknownSlot,
+    forEachKnownItem = forEachKnownItem,
+    getSlotCount = getSlotCount,
+    getSlotSpace = getSlotSpace,
+    getSlotLimit = getSlotLimit,
+    dropFromSlot = dropFromSlot,
+    getSlotForItem = getSlotForItem
   }
 end
 
@@ -366,11 +922,10 @@ local Turtle = function()
   -- -------------------------------------------------------------------
 
   function constructor()
-    local thisTurtle = getPublic();
     local hardCodedDirection = 'E' -- @TODO
 
     initNavSystem(hardCodedDirection)
-    mInventorySystem = InventorySystem(thisTurtle)
+    mInventorySystem = InventorySystem(turtle)
   end
 
 
@@ -479,7 +1034,7 @@ local Turtle = function()
     return mRelativePos
   end
 
-  function isValidDir(dir)
+  function isValidDirKey(dir)
     if (dir == 'N' or dir == 'E' or dir == 'S' or dir == 'W') then 
       return true
     end
@@ -515,7 +1070,7 @@ local Turtle = function()
   end
 
   function getTurnCountBetweenDirections(currentDir, desiredDir)
-    if (not isValidDir(currentDir) or not isValidDir(desiredDir)) then
+    if (not isValidDirKey(currentDir) or not isValidDirKey(desiredDir)) then
       print('INVALID direction. Valid options include [N, E, S, W]')
       return 0
     end
@@ -571,6 +1126,11 @@ local Turtle = function()
 
   function getHomeFacingDirection()
     return getDirection(mHomeFacingDir)
+  end
+
+  function getHomeFacingDirectionKey()
+    local homeDirection = getHomeFacingDirection()
+    return homeDirection['key']
   end
 
   function isHome()
@@ -738,7 +1298,7 @@ local Turtle = function()
     print('------------------------------------')
     print("\nCurrent pos:")
     printVector(getPos())
-    print(string.format("\Current facing: [%s]", mFacingDir))
+    print(string.format("\nCurrent facing: [%s]", mFacingDir))
     print(string.format("\nHome facing: [%s]", mHomeFacingDir))
     print(string.format("\n"))
   end
@@ -756,7 +1316,6 @@ local Turtle = function()
       if (turtle.turnLeft()) then
         mFacingDir = newDir
         setCurrentLocation()
-        printFacingDir()
       else
         return false
       end
@@ -772,7 +1331,6 @@ local Turtle = function()
       if (turtle.turnRight()) then
         mFacingDir = newDir
         setCurrentLocation()
-        printFacingDir()
       else
         return false
       end
@@ -795,7 +1353,7 @@ local Turtle = function()
 
     -- @TODO - this could be improved
     dir = string.upper(dir)
-    if (isValidDir(dir)) then 
+    if (isValidDirKey(dir)) then 
       turn(getTurnCountBetweenDirections(mFacingDir, dir))
     end
   end
@@ -907,7 +1465,7 @@ local Turtle = function()
           end
         end
       end
-      sleep(1) -- wait for the obstruction to move
+      sleep(2^attemptNum) -- wait for the obstruction to move
     end -- end while
 
     if (mRelativePos.z ~= posZ) then
@@ -939,7 +1497,7 @@ local Turtle = function()
       end
       
       if (attemptNum > 1) then
-        sleep(1) -- wait for the obstruction to move
+        sleep(2^attemptNum) -- wait for the obstruction to move
       end
     end -- end while
 
@@ -970,7 +1528,7 @@ local Turtle = function()
         end
       end
       if (attemptNum > 1) then
-        sleep(1) -- wait for the obstruction to move
+        sleep(2^attemptNum) -- wait for the obstruction to move
       end
     end -- end while
 
@@ -999,14 +1557,19 @@ local Turtle = function()
 
   function home()
     -- if not already home
+    local homeDir = getHomeFacingDirectionKey()
+
+    if (vEqual(mHomePos, getPos()) and mFacingDir ~= mHomeFacingDir) then
+      face(homeDir)
+    end
+
     if (not isHome()) then 
-      local homeDirection = getHomeFacingDirection()
       -- go to position 1 block infront of home
       local entrancePos = mHomePos + homeDirection['vector']
       goTo(entrancePos)
 
       -- back into station
-      face(homeDirection['key'])
+      face(homeDir)
       back(1)
     end
   end
@@ -1018,80 +1581,167 @@ local Turtle = function()
     end
   end
   
-  function getPublic()
-    return {
-      unpack(turtle), -- include all the unmentioned ones
 
-      forward         = forward,
-      back            = back,
-      up              = up,
-      down            = down,
-      turnLeft        = turnLeft,
-      turnRight       = turnRight,
-      face            = face,
-      right           = right,
-      left            = left,
-      setHome         = setHome,
-      clearNav        = deleteNavData,
-      printNav        = printNav,
-      goTo            = goTo,
-      face            = face,
-      turn            = turn,
-      home            = home,
-      isHome          = isHome,
-      leaveStation    = leaveStation,
-      getHomePos      = getHomePos,
-      turnCount       = getTurnCountBetweenDirections,
-      scanInventory   = scanInventory,
+  -- incomplete
+  function searchForInventories()
+    turtle.home()
 
-      -- explicitly set the ones im gonna need to remember in this class for ref
-      select          = turtle.select,
-      getSelectedSlot = turtle.getSelectedSlot,
-      getItemCount    = turtle.getItemCount,
-      getItemSpace    = turtle.getItemSpace,
-      -- 
-      compareTo       = turtle.compareTo,
-      compare         = turtle.compare,
-      compareUp       = turtle.compareUp,
-      compareDown     = turtle.compareDown,
-      transferTo      = turtle.transferTo,
-      -- 
-      drop            = turtle.drop,
-      dropUp          = turtle.dropUp,
-      dropDown        = turtle.dropDown,
-      suck            = turtle.suck,
-      suckUp          = turtle.suckUp,
-      suckDown        = turtle.suckDown,
-      refuel          = turtle.refuel,
-      getFuelLevel    = turtle.getFuelLevel,
-      --    
-      detect          = turtle.detect,
-      detectUp        = turtle.detectUp,
-      detectDown      = turtle.detectDown,
+    local homeDir =  getHomeFacingDirectionKey()
+    local invDirectionKey = getTurnDirection(homeDir, 2)
+    local scanningDirKey = getTurnDirection(homeDir, 1)
+    
+    local keepSearching = true
+    local iterationCounter = 0
+    local iterationMax = 64
+    -- starting at home
+    -- scan all the inv on the right side
+    while keepSearching and iterationCounter <= iterationMax do
 
-      place           = turtle.place,
-      placeUp         = turtle.placeUp,
-      placeDown       = turtle.placeDown,
+      local emptySlotNum
+      emptySlotNum = getEmptySlot()
 
-      dig             = turtle.dig,
-      digUp           = turtle.digUp,
-      digDown         = turtle.digDown,
-    }
+      while (emptySlotNum == nil) do
+        print('Please make some free space in my inv.')
+
+        local unknownSlots = mInventorySystem.getOrderedListOfUnknownSlots()
+        if(#unknownSlots > 0) then
+          print(string.format('These slots could be emptied [%s]', strJoin(unknownSlots)))
+        end
+
+        pressEnterToContinue()
+        mInventorySystem.scanInventory()
+        emptySlotNum = getEmptySlot()
+      end
+
+
+      if (emptySlotNum ~= nil) then
+        face(invDirectionKey)
+        mInventorySystem.select(emptySlotNum)
+        turtle.suck()
+        mInventorySystem.scanInventory()
+      end
+
+      iterationCounter = iterationCounter + 1
+    end
   end
 
+
+  -- not working yet
+  function scanChunk(filename)
+    home()
+
+    local inv = mInventorySystem;
+
+    -- scan ans sort inventory
+    inv.sortInventory()
+
+    local homeDirectionKey = getHomeFacingDirectionKey()
+    local invDirectionKey = getTurnDirection(homeDirectionKey, 2)
+
+    -- go to main drop chest
+    face(invDirectionKey)
+
+    -- drop all unknown slots
+    inv.forEachUnknownSlot(function(slotNum) 
+      print(string.format('dropping unknown items from slot [%s]', slotNum))
+      local dropSuccess = inv.dropFromSlot(slotNum, inv.getSlotCount(slotNum))
+      if (not dropSuccess) then
+        print(string.format('could not drop slot [%s]', slotNum))
+        pressEnterToContinue()
+      end
+    end)
+
+    -- drop known slots until 1 remains just to mark for compairison
+    local leaveCountOfEachItem = 1;
+    inv.forEachKnownItem(function(itemKey, slotNums) 
+      local totalCountOfItem = inv.getCountOfKnownItem(itemKey)
+
+      if (totalCountOfItem > leaveCountOfEachItem) then
+        local slotNum = inv.getSlotForItem(itemKey)
+        local dropAmount = math.min(inv.getSlotCount(slotNum), totalCountOfItem - leaveCountOfEachItem)
+        local dropSuccess = inv.dropFromSlot(slotNum, inv.getSlotCount(slotNum))
+        if (not dropSuccess) then
+          print(string.format('could not drop %s from slot [%s]', dropAmount, slotNum))
+          pressEnterToContinue()
+        end
+      end
+    end)
+
+    inv.scanInventory()
+    face(homeDirectionKey)
+
+    print('ready to scan')
+  end
+
+  
   -- execute constructor
   constructor()
 
-  return getPublic()
+  return {
+    unpack(turtle), -- include all the unmentioned ones
+
+    forward         = forward,
+    back            = back,
+    up              = up,
+    down            = down,
+    turnLeft        = turnLeft,
+    turnRight       = turnRight,
+    face            = face,
+    right           = right,
+    left            = left,
+    setHome         = setHome,
+    clearNav        = deleteNavData,
+    printNav        = printNav,
+    goTo            = goTo,
+    face            = face,
+    turn            = turn,
+    home            = home,
+    isHome          = isHome,
+    leaveStation    = leaveStation,
+    getHomePos      = getHomePos,
+    turnCount       = getTurnCountBetweenDirections,
+    scanInventory   = mInventorySystem.scanInventory,
+
+    -- explicitly set the ones im gonna need to remember in this class for ref
+    select          = mInventorySystem.select,
+    getSelectedSlot = mInventorySystem.getSelectedSlot,
+    compaireSlots   = mInventorySystem.compaireSlots,
+    sortInventory   = mInventorySystem.sortInventory,
+    getCountOfKnownItem = getCountOfKnownItem,
+    getItemCount    = turtle.getItemCount,
+    getItemSpace    = turtle.getItemSpace,
+    -- 
+    compareTo       = turtle.compareTo,
+    compare         = turtle.compare,
+    compareUp       = turtle.compareUp,
+    compareDown     = turtle.compareDown,
+    transferTo      = mInventorySystem.transferTo,
+    -- 
+    drop            = turtle.drop,
+    dropUp          = turtle.dropUp,
+    dropDown        = turtle.dropDown,
+    suck            = turtle.suck,
+    suckUp          = turtle.suckUp,
+    suckDown        = turtle.suckDown,
+    refuel          = turtle.refuel,
+    getFuelLevel    = turtle.getFuelLevel,
+    --    
+    detect          = turtle.detect,
+    detectUp        = turtle.detectUp,
+    detectDown      = turtle.detectDown,
+
+    place           = turtle.place,
+    placeUp         = turtle.placeUp,
+    placeDown       = turtle.placeDown,
+
+    dig             = turtle.dig,
+    digUp           = turtle.digUp,
+    digDown         = turtle.digDown,
+
+    --
+    scanChunk       = scanChunk,
+  }
 end
-
-
-
-
-
-
-
-
 
 
 
@@ -1102,73 +1752,97 @@ end
 -- Overwrite turtle variable with upgraded class
 local turtle = Turtle()
 
-local args = {...}
+
 if (#args ~= 0) then
   local command = tostring(args[1])
   local times = toNumber(args[2], 1)
 
-    if (command == 'back' or command == 'backward') then
-      turtle.back(times)
+  if (command == 'back' or command == 'backward') then
+    turtle.back(times)
 
-    elseif (command == 'forward' or command == 'move') then
-      turtle.forward(times)
+  elseif (command == 'forward' or command == 'move') then
+    turtle.forward(times)
 
-    elseif (command == 'up') then
-      turtle.up(times)
+  elseif (command == 'up') then
+    turtle.up(times)
 
-    elseif (command == 'down') then
-      turtle.down(times)
+  elseif (command == 'down') then
+    turtle.down(times)
 
-    elseif (string.lower(command) == 'turnleft') then
-      turtle.turnLeft(times)
+  elseif (string.lower(command) == 'turnleft') then
+    turtle.turnLeft(times)
 
-    elseif (string.lower(command) == 'turnright') then
-      turtle.turnRight(times)
+  elseif (string.lower(command) == 'turnright') then
+    turtle.turnRight(times)
 
-    elseif (command == 'left') then
-      turtle.left(times)
+  elseif (command == 'left') then
+    turtle.left(times)
 
-    elseif (command == 'right') then
-      turtle.right(times)
+  elseif (command == 'right') then
+    turtle.right(times)
 
-    elseif (string.lower(command) == 'sethome') then
-      turtle.clearNav()
-      turtle.setHome()
-    elseif (string.lower(command) == 'clearnav') then
-      turtle.clearNav()
-    elseif (string.lower(command) == 'printnav') then
-      turtle.printNav()
-    elseif (string.lower(command) == 'goto') then
-      local x = toNumber(args[2])
-      local y = toNumber(args[3])
-      local z = toNumber(args[4])
-      local face = args[5]
+  elseif (string.lower(command) == 'sethome') then
+    turtle.clearNav()
+    turtle.setHome()
+  elseif (string.lower(command) == 'clearnav') then
+    turtle.clearNav()
+  elseif (string.lower(command) == 'printnav') then
+    turtle.printNav()
+  elseif (string.lower(command) == 'goto') then
+    local x = toNumber(args[2])
+    local y = toNumber(args[3])
+    local z = toNumber(args[4])
+    local face = args[5]
 
-      local newPos = vector.new(x, y, z)
-      -- is home going somewhere else
-      if (turtle.isHome() and not vEqual(newPos, turtle.getHomePos())) then 
-        leaveStation()
-      end
-
-      turtle.goTo(newPos)
-
-      if (face ~= nil) then
-        turtle.face(face)
-      end
-    elseif (string.lower(command) == 'face') then
-      local dir = tostring(args[2])
-      turtle.face(dir)
-    elseif (string.lower(command) == 'turn') then
-      turtle.turn(times)
-    elseif (string.lower(command) == 'turncount') then
-      local currentDir = string.upper(args[2])
-      local desiredDir = string.upper(args[3])
-      print(string.format("\nTurns required: [%s]", turtle.turnCount(currentDir, desiredDir)))
-    elseif (string.lower(command) == 'home') then
-      turtle.home()
-    elseif (string.lower(command) == 'inv') then
-      turtle.scanInventory()
-    else
-      print('command not recognized')
+    local newPos = vector.new(x, y, z)
+    -- is home going somewhere else
+    if (turtle.isHome() and not vEqual(newPos, turtle.getHomePos())) then 
+      leaveStation()
     end
+
+    turtle.goTo(newPos)
+
+    if (face ~= nil) then
+      turtle.face(face)
+    end
+  elseif (string.lower(command) == 'face') then
+    local dir = tostring(args[2])
+    turtle.face(dir)
+  elseif (string.lower(command) == 'turn') then
+    turtle.turn(times)
+  elseif (string.lower(command) == 'turncount') then
+    local currentDir = string.upper(args[2])
+    local desiredDir = string.upper(args[3])
+    print(string.format("\nTurns required: [%s]", turtle.turnCount(currentDir, desiredDir)))
+  elseif (string.lower(command) == 'home') then
+    turtle.home()
+  elseif (string.lower(command) == 'inv') then
+    turtle.scanInventory()
+  elseif (string.lower(command) == 'invsort') then
+    turtle.sortInventory()
+  elseif (string.lower(command) == 'countitem') then
+    local itemKey = string.upper(args[2])
+
+    turtle.scanInventory()
+    local count = turtle.getCountOfKnownItem(itemKey)
+    print(string.format('count of %s: %s', itemKey, count))
+  elseif (string.lower(command) == 'chestsearch') then
+    turtle.scanInventory()
+    turtle.searchForInventories()
+
+  elseif (string.lower(command) == 'scanchunk') then
+    local toFile = string.upper(tostring(args[2]))
+    turtle.scanChunk(toFile)
+  elseif (string.lower(command) == 'test') then
+    local a = toNumber(args[2], 0)
+    local b = toNumber(args[3], 0)
+
+    if(turtle.compaireSlots(a, b)) then
+      print('true')
+    else
+      print('false')
+    end
+  else
+    print('command not recognized')
+  end
 end
